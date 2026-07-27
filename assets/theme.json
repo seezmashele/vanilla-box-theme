@@ -1,0 +1,77 @@
+{
+  "name": "Vanilla Box",
+  "id": "VanillaBox",
+  "version": "0.1.0",
+  "author": "seez",
+  "description": "A soft, boxy theme for KDE Plasma 6.",
+  "components": [
+    {
+      "id": "colors",
+      "name": "Color scheme",
+      "description": "Window and widget colors",
+      "source": "color-schemes/VanillaBox.colors",
+      "target": "color-schemes",
+      "applyCmd": "plasma-apply-colorscheme",
+      "applyArgs": ["VanillaBox"],
+      "default": true
+    },
+    {
+      "id": "plasma-style",
+      "name": "Plasma style",
+      "description": "Panel, widget and system tray styling",
+      "source": "plasma/desktoptheme/VanillaBox",
+      "target": "plasma/desktoptheme",
+      "applyCmd": "plasma-apply-desktoptheme",
+      "applyArgs": ["VanillaBox"],
+      "default": true
+    },
+    {
+      "id": "icons",
+      "name": "Icons",
+      "description": "Application and places icon set",
+      "source": "icons/VanillaBox",
+      "target": "icons",
+      "applyCmd": "kwriteconfig6",
+      "applyArgs": ["--file", "kdeglobals", "--group", "Icons", "--key", "Theme", "VanillaBox"],
+      "default": true
+    },
+    {
+      "id": "decoration",
+      "name": "Window decoration",
+      "description": "Titlebar and window buttons",
+      "source": "aurorae/themes/VanillaBox",
+      "target": "aurorae/themes",
+      "applyCmd": "kwriteconfig6",
+      "applyArgs": ["--file", "kwinrc", "--group", "org.kde.kdecoration2", "--key", "theme", "__aurorae__svg__VanillaBox"],
+      "default": true
+    },
+    {
+      "id": "cursors",
+      "name": "Cursors",
+      "description": "Cursor theme",
+      "source": "icons/VanillaBox-cursors",
+      "target": "icons",
+      "applyCmd": "plasma-apply-cursortheme",
+      "applyArgs": ["VanillaBox-cursors"],
+      "default": false
+    },
+    {
+      "id": "wallpaper",
+      "name": "Wallpaper",
+      "description": "Desktop background",
+      "source": "wallpapers/VanillaBox",
+      "target": "wallpapers",
+      "applyCmd": "plasma-apply-wallpaperimage",
+      "applyArgs": ["VanillaBox"],
+      "default": false
+    },
+    {
+      "id": "konsole",
+      "name": "Konsole profile",
+      "description": "Terminal colors and profile",
+      "source": "konsole/VanillaBox.colorscheme",
+      "target": "konsole",
+      "default": false
+    }
+  ]
+}

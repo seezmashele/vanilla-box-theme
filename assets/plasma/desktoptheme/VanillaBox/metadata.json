@@ -1,0 +1,10 @@
+{
+  "KPlugin": {
+    "Id": "VanillaBox",
+    "Name": "Vanilla Box",
+    "Authors": [{ "Name": "seez" }],
+    "Version": "0.1.0",
+    "License": "MIT"
+  },
+  "X-Plasma-API": "5.0"
+}
