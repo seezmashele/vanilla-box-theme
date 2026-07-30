@@ -1,25 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="116">
-<!-- Corner tiles are 8 wide so the top two corners can carry an 8px radius.
-     Each corner draws the border colour first and lays the background over it
-     inset by 1px, which is what leaves a 1px outline along the rounded edge.
-     The bottom corners stay square: the decoration is the titlebar only, and
-     the window's contents continue straight below it. -->
-<g id="decoration-topleft"><path d="M0,31 L0,8 C0,3.582 3.582,0 8,0 L8,31 Z" fill="#383838"/><path d="M1,31 L1,8 C1,4.135 4.135,1 8,1 L8,31 Z" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-top"><rect x="8" y="0" width="24" height="1" fill="#383838"/><rect x="8" y="1" width="24" height="30" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-topright"><path d="M40,31 L40,8 C40,3.582 36.418,0 32,0 L32,31 Z" fill="#383838"/><path d="M39,31 L39,8 C39,4.135 35.865,1 32,1 L32,31 Z" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-left"><rect x="0" y="31" width="1" height="24" fill="#383838"/><rect x="1" y="31" width="7" height="24" class="ColorScheme-Background" fill="#292929"/></g>
-<rect id="decoration-center" x="8" y="31" width="24" height="24" class="ColorScheme-Background" fill="#292929"/>
-<g id="decoration-right"><rect x="32" y="31" width="7" height="24" class="ColorScheme-Background" fill="#292929"/><rect x="39" y="31" width="1" height="24" fill="#383838"/></g>
-<rect id="decoration-bottomleft" x="0" y="55" width="8" height="1" fill="#383838"/>
-<rect id="decoration-bottom" x="8" y="55" width="24" height="1" fill="#383838"/>
-<rect id="decoration-bottomright" x="32" y="55" width="8" height="1" fill="#383838"/>
-<g id="decoration-inactive-topleft"><path d="M0,91 L0,68 C0,63.582 3.582,60 8,60 L8,91 Z" fill="#383838"/><path d="M1,91 L1,68 C1,64.135 4.135,61 8,61 L8,91 Z" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-inactive-top"><rect x="8" y="60" width="24" height="1" fill="#383838"/><rect x="8" y="61" width="24" height="30" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-inactive-topright"><path d="M40,91 L40,68 C40,63.582 36.418,60 32,60 L32,91 Z" fill="#383838"/><path d="M39,91 L39,68 C39,64.135 35.865,61 32,61 L32,91 Z" class="ColorScheme-Background" fill="#292929"/></g>
-<g id="decoration-inactive-left"><rect x="0" y="91" width="1" height="24" fill="#383838"/><rect x="1" y="91" width="7" height="24" class="ColorScheme-Background" fill="#292929"/></g>
-<rect id="decoration-inactive-center" x="8" y="91" width="24" height="24" class="ColorScheme-Background" fill="#292929"/>
-<g id="decoration-inactive-right"><rect x="32" y="91" width="7" height="24" class="ColorScheme-Background" fill="#292929"/><rect x="39" y="91" width="1" height="24" fill="#383838"/></g>
-<rect id="decoration-inactive-bottomleft" x="0" y="115" width="8" height="1" fill="#383838"/>
-<rect id="decoration-inactive-bottom" x="8" y="115" width="24" height="1" fill="#383838"/>
-<rect id="decoration-inactive-bottomright" x="32" y="115" width="8" height="1" fill="#383838"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="127">
+<!-- Corner tiles are 6 wide and the bottom row is 6 tall, so every corner can
+     carry a 6px radius. Each corner draws the border colour first and lays the
+     background over it inset by 1px, which leaves the 1px outline following
+     the curve.
+
+     Rounding the bottom needs somewhere to draw it: VanillaBoxDarkrc sets
+     BorderBottom=6 so the decoration extends below the client window. With
+     BorderBottom=0 there is no bottom strip and the lower corners cannot show. -->
+<g id="decoration-topleft"><path d="M0,31 L0,6 C0,2.686 2.686,0 6,0 L6,31 Z" fill="#383838"/><path d="M1,31 L1,6 C1,3.239 3.239,1 6,1 L6,31 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-top"><rect x="6" y="0" width="24" height="1" fill="#383838"/><rect x="6" y="1" width="24" height="30" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-topright"><path d="M36,31 L36,6 C36,2.686 33.314,0 30,0 L30,31 Z" fill="#383838"/><path d="M35,31 L35,6 C35,3.239 32.761,1 30,1 L30,31 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-left"><rect x="0" y="31" width="1" height="24" fill="#383838"/><rect x="1" y="31" width="5" height="24" class="ColorScheme-Background" fill="#292929"/></g>
+<rect id="decoration-center" x="6" y="31" width="24" height="24" class="ColorScheme-Background" fill="#292929"/>
+<g id="decoration-right"><rect x="30" y="31" width="5" height="24" class="ColorScheme-Background" fill="#292929"/><rect x="35" y="31" width="1" height="24" fill="#383838"/></g>
+<g id="decoration-bottomleft"><path d="M0,55 L6,55 L6,61 C2.686,61 0,58.314 0,55 Z" fill="#383838"/><path d="M1,55 L6,55 L6,60 C3.239,60 1,57.761 1,55 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-bottom"><rect x="6" y="55" width="24" height="5" class="ColorScheme-Background" fill="#292929"/><rect x="6" y="60" width="24" height="1" fill="#383838"/></g>
+<g id="decoration-bottomright"><path d="M36,55 L30,55 L30,61 C33.314,61 36,58.314 36,55 Z" fill="#383838"/><path d="M35,55 L30,55 L30,60 C32.761,60 35,57.761 35,55 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-inactive-topleft"><path d="M0,97 L0,72 C0,68.686 2.686,66 6,66 L6,97 Z" fill="#383838"/><path d="M1,97 L1,72 C1,69.239 3.239,67 6,67 L6,97 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-inactive-top"><rect x="6" y="66" width="24" height="1" fill="#383838"/><rect x="6" y="67" width="24" height="30" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-inactive-topright"><path d="M36,97 L36,72 C36,68.686 33.314,66 30,66 L30,97 Z" fill="#383838"/><path d="M35,97 L35,72 C35,69.239 32.761,67 30,67 L30,97 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-inactive-left"><rect x="0" y="97" width="1" height="24" fill="#383838"/><rect x="1" y="97" width="5" height="24" class="ColorScheme-Background" fill="#292929"/></g>
+<rect id="decoration-inactive-center" x="6" y="97" width="24" height="24" class="ColorScheme-Background" fill="#292929"/>
+<g id="decoration-inactive-right"><rect x="30" y="97" width="5" height="24" class="ColorScheme-Background" fill="#292929"/><rect x="35" y="97" width="1" height="24" fill="#383838"/></g>
+<g id="decoration-inactive-bottomleft"><path d="M0,121 L6,121 L6,127 C2.686,127 0,124.314 0,121 Z" fill="#383838"/><path d="M1,121 L6,121 L6,126 C3.239,126 1,123.761 1,121 Z" class="ColorScheme-Background" fill="#292929"/></g>
+<g id="decoration-inactive-bottom"><rect x="6" y="121" width="24" height="5" class="ColorScheme-Background" fill="#292929"/><rect x="6" y="126" width="24" height="1" fill="#383838"/></g>
+<g id="decoration-inactive-bottomright"><path d="M36,121 L30,121 L30,127 C33.314,127 36,124.314 36,121 Z" fill="#383838"/><path d="M35,121 L30,121 L30,126 C32.761,126 35,123.761 35,121 Z" class="ColorScheme-Background" fill="#292929"/></g>
 </svg>
