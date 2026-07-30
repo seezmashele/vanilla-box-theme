@@ -9,10 +9,7 @@ name=vanilla-box-dark
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.kwin.aurorae.v2
 theme=__aurorae__svg__VanillaBoxDark
-; NoSides, not None: None collapses every border to zero, including the bottom
-; strip the decoration needs to draw its lower rounded corners in. NoSides drops
-; the left and right borders and keeps the bottom.
-BorderSize=NoSides
+BorderSize=None
 BorderSizeAuto=false
 
 [kcminputrc][Mouse]

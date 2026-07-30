@@ -8,9 +8,7 @@ Animation=0
 [Layout]
 BorderLeft=0
 BorderRight=0
-# The decoration needs a strip below the client window to draw the bottom
-# corners in; at 0 there is nowhere for a 6px radius to go.
-BorderBottom=6
+BorderBottom=0
 TitleEdgeTop=0
 TitleEdgeBottom=0
 TitleEdgeLeft=6
