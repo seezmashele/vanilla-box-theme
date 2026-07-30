@@ -7,7 +7,7 @@ AccentColor=174,142,108
 name=vanilla-box-dark
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.kwin.aurorae
+library=org.kde.kwin.aurorae.v2
 theme=__aurorae__svg__VanillaBoxDark
 BorderSize=None
 BorderSizeAuto=false
