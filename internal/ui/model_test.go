@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -10,19 +12,54 @@ import (
 	"vanillabox/internal/theme"
 )
 
-// testTheme is a small stand-in with one unavailable component, so the tests
-// cover the case a partial asset tree produces.
+// testTheme is a small stand-in with one optioned component and one unavailable
+// one, so the tests cover both the preferences step and what a partial asset
+// tree produces. Installs are real, so it ships real files and redirects the
+// data directory into the test's temporary space.
 func testTheme(t *testing.T) *theme.Theme {
 	t.Helper()
 
+	assets := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	writeFile(t, filepath.Join(assets, "colors.colors"), "[General]\n")
+	writeFile(t, filepath.Join(assets, "style", "widgets", "panel.svg"), "translucent\n")
+	writeFile(t, filepath.Join(assets, "style", "opaque", "widgets", "panel.svg"), "opaque\n")
+
 	return &theme.Theme{
-		Name:    "Vanilla Box",
-		Version: "0.1.0",
+		Name:     "Vanilla Box",
+		Version:  "0.1.0",
+		AssetDir: assets,
+		Stamp:    "test",
 		Components: []theme.Component{
-			{ID: "colors", Name: "Color scheme", Source: "a", Target: "color-schemes", Default: true, Available: true},
-			{ID: "icons", Name: "Icons", Source: "b", Target: "icons", Default: true, Available: true},
-			{ID: "cursors", Name: "Cursors", Source: "c", Target: "icons", Available: false},
+			{
+				ID: "colors", Name: "Color scheme", Source: "colors.colors",
+				Target: "color-schemes", Default: true, Available: true,
+			},
+			{
+				ID: "style", Name: "Plasma style", Source: "style",
+				Target: "plasma/desktoptheme", Default: true, Available: true,
+				Options: []theme.Option{{
+					ID: "transparency", Name: "Transparency",
+					Default: true, OverlayWhenOff: "opaque",
+				}},
+			},
+			{
+				ID: "cursors", Name: "Cursors", Source: "missing",
+				Target: "icons", Available: false,
+			},
 		},
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -111,10 +148,52 @@ func TestCannotContinueWithNothingSelected(t *testing.T) {
 	}
 }
 
-func TestConfirmScreenListsTargetsAndWarns(t *testing.T) {
+func TestOptionsScreenStartsOnDefaults(t *testing.T) {
 	m := New(testTheme(t))
 
 	m, _ = send(m, "enter")
+
+	if m.screen != screenOptions {
+		t.Fatalf("screen = %v, want screenOptions", m.screen)
+	}
+	if !m.choices["transparency"] {
+		t.Error("transparency should start on, from the option's default")
+	}
+
+	if view := renderView(m); !strings.Contains(view, "Transparency") {
+		t.Error("options view should list the option")
+	}
+
+	m, _ = send(m, " ")
+	if m.choices["transparency"] {
+		t.Error("space should turn the option off")
+	}
+}
+
+// TestOptionsScreenSkippedWithoutOptions covers deselecting the only component
+// that has preferences: there is nothing to ask about, so the step is skipped
+// rather than shown empty.
+func TestOptionsScreenSkippedWithoutOptions(t *testing.T) {
+	m := New(testTheme(t))
+
+	m.cursor = 1 // the optioned component
+	m, _ = send(m, " ", "enter")
+
+	if m.screen != screenConfirm {
+		t.Fatalf("screen = %v, want screenConfirm", m.screen)
+	}
+
+	// And esc goes back to the checklist, not to a screen that was never shown.
+	m, _ = send(m, "esc")
+	if m.screen != screenSelect {
+		t.Errorf("screen = %v, want screenSelect after esc", m.screen)
+	}
+}
+
+func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
+	m := New(testTheme(t))
+
+	m, _ = send(m, "enter", " ", "enter")
 
 	if m.screen != screenConfirm {
 		t.Fatalf("screen = %v, want screenConfirm", m.screen)
@@ -127,18 +206,25 @@ func TestConfirmScreenListsTargetsAndWarns(t *testing.T) {
 	if !strings.Contains(view, "color-schemes") {
 		t.Error("confirm view should show where files go")
 	}
-	if theme.Simulated && !strings.Contains(view, "Simulated run") {
-		t.Error("confirm view should warn that the run is simulated")
+	if !strings.Contains(view, "Transparency: off") {
+		t.Error("confirm view should report the chosen options")
+	}
+	if !strings.Contains(view, "System Settings") {
+		t.Error("confirm view should say the theme is not applied")
 	}
 }
 
-func TestEscapeGoesBackFromConfirm(t *testing.T) {
+func TestEscapeGoesBackScreenByScreen(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter", "esc")
+	m, _ = send(m, "enter", "enter", "esc")
+	if m.screen != screenOptions {
+		t.Fatalf("screen = %v, want screenOptions after esc from confirm", m.screen)
+	}
 
+	m, _ = send(m, "esc")
 	if m.screen != screenSelect {
-		t.Errorf("screen = %v, want screenSelect after esc", m.screen)
+		t.Errorf("screen = %v, want screenSelect after esc from options", m.screen)
 	}
 }
 
@@ -148,7 +234,7 @@ func TestEscapeGoesBackFromConfirm(t *testing.T) {
 func TestInstallWalksTheQueue(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter") // to confirm
+	m, _ = send(m, "enter", "enter") // through the preferences, to the review
 	next, cmd := m.Update(keyPress("enter"))
 	m = next.(Model)
 
@@ -237,8 +323,7 @@ type errMissingAssets struct{}
 
 func (errMissingAssets) Error() string { return "no theme.json found" }
 
-// runInstallStep executes a command chain until it yields a stepDoneMsg. The
-// stub sleeps, so this is bounded by the simulated work.
+// runInstallStep executes a command chain until it yields a stepDoneMsg.
 func runInstallStep(t *testing.T, cmd tea.Cmd) tea.Msg {
 	t.Helper()
 

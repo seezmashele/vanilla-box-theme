@@ -34,7 +34,9 @@ func newKeyMap() keyMap {
 			key.WithHelp("↓/j", "down"),
 		),
 		Toggle: key.NewBinding(
-			key.WithKeys(" "),
+			// Bubble Tea normalises the space bar to "space"; a binding on " "
+			// silently never matches.
+			key.WithKeys("space"),
 			key.WithHelp("space", "toggle"),
 		),
 		All: key.NewBinding(

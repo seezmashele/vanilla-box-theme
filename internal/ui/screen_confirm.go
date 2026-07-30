@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"vanillabox/internal/theme"
 )
 
 // confirmView is the last stop before installing: exactly what will be written,
@@ -29,29 +27,26 @@ func (m Model) confirmView() string {
 		b.WriteString(m.styles.path.Render("      → " + m.theme.DisplayTargetPath(it.component)))
 		b.WriteString("\n")
 
-		if cmd := applyCommand(it.component); cmd != "" {
-			b.WriteString(m.styles.path.Render("      $ " + cmd))
+		for _, o := range it.component.Options {
+			b.WriteString(m.styles.path.Render("      " + o.Name + ": " + onOff(m.choices[o.ID])))
 			b.WriteString("\n")
 		}
 	}
 
-	if theme.Simulated {
-		b.WriteString("\n")
-		b.WriteString(m.styles.warning.Render(
-			"Simulated run — no files will be written and no commands will run.",
-		))
-		b.WriteString("\n")
-	}
+	b.WriteString("\n")
+	b.WriteString(m.styles.subtitle.Render(
+		"Files are copied only. Nothing is applied — you pick the theme in System Settings.",
+	))
+	b.WriteString("\n")
 
 	return b.String()
 }
 
-// applyCommand is the KDE command that would be run for a component, rendered
-// the way it would be typed.
-func applyCommand(c theme.Component) string {
-	if c.ApplyCmd == "" {
-		return ""
+// onOff renders an option's state the way the review screen lists it.
+func onOff(on bool) string {
+	if on {
+		return "on"
 	}
 
-	return strings.TrimSpace(c.ApplyCmd + " " + strings.Join(c.ApplyArgs, " "))
+	return "off"
 }

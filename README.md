@@ -1,11 +1,12 @@
 # Vanilla Box
 
-A terminal installer for the Vanilla Box KDE Plasma theme, built with
+A terminal installer for the Vanilla Box Dark KDE Plasma theme, built with
 [Bubble Tea](https://charm.land/bubbletea).
 
-> **Installs are simulated.** The interface is complete — select, review, install, summary — but
-> `theme.Install` is a stub that sleeps and reports success. No files are written and no KDE commands
-> are run. See [Making it real](#making-it-real).
+It copies the theme's files into `~/.local/share` so KDE can find them, and nothing else. It does
+not apply the theme — once the files are in place, "Vanilla Box Dark" appears under **System
+Settings → Colors & Themes** and you pick it there. What the installer *does* decide is how the
+files are written: see [Preferences](#preferences).
 
 ## Build and run
 
@@ -36,12 +37,18 @@ The asset directory is found from the first of these that contains a `theme.json
 
 If none has one, the UI opens on an error screen listing every path it tried.
 
+To see what an install would do without touching your desktop, send it somewhere else:
+
+```sh
+XDG_DATA_HOME=/tmp/vbtest ./vanillabox
+```
+
 ### Keys
 
 | Key | Does |
 | --- | --- |
 | `↑`/`k`, `↓`/`j` | Move |
-| `space` | Toggle a component |
+| `space` | Toggle a component or preference |
 | `a` / `n` | Select all / none |
 | `enter` | Continue, then install |
 | `esc` | Back |
@@ -52,23 +59,30 @@ If none has one, the UI opens on an error screen listing every path it tried.
 
 ## The theme
 
-`assets/theme.json` describes the theme and the components it ships. Adding a component is an edit to
-that file, not to the code:
+`assets/theme.json` describes the theme and the components it ships. Adding a component is an edit
+to that file, not to the code:
 
 ```json
 {
   "id": "colors",
   "name": "Color scheme",
   "description": "Window and widget colors",
-  "source": "color-schemes/VanillaBox.colors",
+  "source": "color-schemes/VanillaBoxDark.colors",
   "target": "color-schemes",
-  "applyCmd": "plasma-apply-colorscheme",
-  "applyArgs": ["VanillaBox"],
   "default": true
 }
 ```
 
 `source` is relative to the asset directory; `target` is relative to `~/.local/share`.
+
+Four components ship:
+
+| Component | Installs to |
+| --- | --- |
+| Color scheme | `color-schemes/VanillaBoxDark.colors` |
+| Plasma style | `plasma/desktoptheme/vanilla-box-dark/` |
+| Window decoration | `aurorae/themes/VanillaBoxDark/` |
+| Global theme | `plasma/look-and-feel/org.vanillabox.dark/` |
 
 Components whose `source` is missing — or is an empty file or directory — are shown greyed out and
 labelled `unavailable`, and cannot be selected. To see that state, point the installer at a partial
@@ -78,37 +92,69 @@ tree:
 ./vanillabox --assets /path/to/incomplete/assets
 ```
 
-The artwork currently in `assets/` is placeholder: valid metadata files with no real graphics.
+## Preferences
 
-## Making it real
+A component can declare options that change what gets written:
 
-Everything that pretends lives in [internal/theme/install.go](internal/theme/install.go). Replace the
-body of `Install` with, roughly:
+```json
+"options": [
+  {
+    "id": "transparency",
+    "name": "Transparency",
+    "description": "Translucent panel, popups and dialogs",
+    "default": true,
+    "overlayWhenOff": "opaque"
+  }
+]
+```
 
-1. copy `t.SourcePath(c)` into `t.TargetPath(c)`
-2. run `c.ApplyCmd` with `c.ApplyArgs`
+An option never edits a file. `overlayWhenOff` names a directory inside the component, and
+switching the option off copies that directory over the files already installed — so the theme's
+artwork stays the only place its looks are defined.
 
-and set `Simulated = false` to drop the warnings from the review and summary screens. Nothing in
-`internal/ui` needs to change: the UI already runs components one at a time and renders whatever
-error comes back.
+That works because a Plasma style already ships its own variants. `opaque/` holds the four
+backgrounds with their `fill-opacity` dropped:
 
-The Plasma 6 commands the manifest expects: `plasma-apply-colorscheme`, `plasma-apply-desktoptheme`,
-`plasma-apply-cursortheme`, `plasma-apply-wallpaperimage`, and `kwriteconfig6` for icons and window
-decoration.
+```
+widgets/panel-background.svg   widgets/background.svg
+widgets/tooltip.svg            dialogs/background.svg
+```
+
+`widgets/tasks.svg` is deliberately not among them. Its `0.3`/`0.4` values are white `normal` and
+`hover` highlights drawn on top of the panel, not backgrounds — forcing them opaque would give
+solid white task buttons. So the task manager keeps its translucency either way.
+
+`opaque/` and `solid/` are installed whichever way the option goes: Plasma falls back to them on
+its own when compositing is off.
+
+Options are shown only for components that are actually selected, and the preferences step is
+skipped entirely when nothing selected has any.
+
+## Backups
+
+Installing over an existing copy moves it to:
+
+```
+~/.local/share/vanillabox/backups/<timestamp>/<target>/<name>
+```
+
+Backups deliberately land outside the theme directories. Plasma scans those, so a backup left
+beside the real thing would show up in System Settings as a second theme.
 
 ## Layout
 
 ```
 main.go                     flags, asset-dir resolution, program startup
 internal/theme/
-  manifest.go               Theme and Component, LoadManifest, path helpers
+  manifest.go               Theme, Component and Option, LoadManifest, path helpers
   availability.go           whether each component's files are actually present
-  install.go                the stub — the one seam to real installs
+  install.go                copying a component into place, backups, overlays
+  copy.go                   copyTree and move
 internal/ui/
   model.go                  root model, screen state machine, install plumbing
   keys.go                   bindings, enabled per screen so help stays honest
   styles.go                 lipgloss styles, adapting to light or dark terminals
-  screen_*.go               the four screens plus the error view
+  screen_*.go               the five screens plus the error view
 assets/                     theme.json and the theme's files
 ```
 
@@ -119,4 +165,6 @@ go test ./...
 ```
 
 `internal/ui` drives the whole flow headlessly — running the commands the model returns and feeding
-the messages back in, the way the runtime does — so the install path is covered without a terminal.
+the messages back in, the way the runtime does. `internal/theme` installs the real shipped assets
+into a temporary `$XDG_DATA_HOME`, both with transparency on and off, so the artwork and the
+manifest are checked against each other rather than against a fixture.

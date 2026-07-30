@@ -12,7 +12,10 @@ const validManifest = `{
   "version": "0.1.0",
   "components": [
     { "id": "colors", "name": "Color scheme", "source": "color-schemes/VanillaBox.colors",
-      "target": "color-schemes", "default": true },
+      "target": "color-schemes", "default": true,
+      "options": [
+        { "id": "transparency", "name": "Transparency", "default": true, "overlayWhenOff": "opaque" }
+      ] },
     { "id": "icons", "name": "Icons", "source": "icons/VanillaBox", "target": "icons" }
   ]
 }`
@@ -35,6 +38,12 @@ func TestLoadManifest(t *testing.T) {
 	}
 	if !theme.Components[0].Default {
 		t.Error("colors should default to selected")
+	}
+	if got := theme.Components[0].Options; len(got) != 1 || got[0].OverlayWhenOff != "opaque" {
+		t.Errorf("colors options = %+v, want one overlaying \"opaque\"", got)
+	}
+	if theme.Stamp == "" {
+		t.Error("LoadManifest should fix a backup stamp for the run")
 	}
 
 	// The color scheme file exists; the icons directory does not.
@@ -85,6 +94,16 @@ func TestLoadManifestErrors(t *testing.T) {
 		{name: "duplicate ids", manifest: `{"name": "V", "components": [
 			{"id": "a", "name": "A", "source": "s", "target": "t"},
 			{"id": "a", "name": "B", "source": "s", "target": "t"}]}`},
+		{name: "option without id", manifest: `{"name": "V", "components": [
+			{"id": "a", "name": "A", "source": "s", "target": "t",
+			 "options": [{"name": "O", "overlayWhenOff": "opaque"}]}]}`},
+		{name: "option without overlay", manifest: `{"name": "V", "components": [
+			{"id": "a", "name": "A", "source": "s", "target": "t",
+			 "options": [{"id": "o", "name": "O"}]}]}`},
+		{name: "duplicate option ids", manifest: `{"name": "V", "components": [
+			{"id": "a", "name": "A", "source": "s", "target": "t", "options": [
+				{"id": "o", "name": "O", "overlayWhenOff": "opaque"},
+				{"id": "o", "name": "P", "overlayWhenOff": "opaque"}]}]}`},
 	}
 
 	for _, tt := range tests {

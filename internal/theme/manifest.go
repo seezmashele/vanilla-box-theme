@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // ManifestName is the file, relative to the asset directory, that describes the
@@ -29,10 +30,10 @@ type Component struct {
 	// user's data directory (~/.local/share).
 	Target string `json:"target"`
 
-	// ApplyCmd and ApplyArgs are the KDE command run to make the component take
-	// effect once its files are in place.
-	ApplyCmd  string   `json:"applyCmd"`
-	ApplyArgs []string `json:"applyArgs"`
+	// Options are the preferences that change what gets written for this
+	// component. They hang off the component rather than the theme so the
+	// preferences screen can show only what the current selection affects.
+	Options []Option `json:"options"`
 
 	// Default reports whether the component starts out selected.
 	Default bool `json:"default"`
@@ -40,6 +41,25 @@ type Component struct {
 	// Available reports whether Source actually exists in the asset directory.
 	// It is filled in by the availability check, not read from theme.json.
 	Available bool `json:"-"`
+}
+
+// Option is a user preference that changes what is written for a component.
+//
+// The theme ships its own variants as directories inside the component, so an
+// option does not edit any file: switching one off copies a directory over the
+// files already installed. That keeps the artwork the only place the theme's
+// looks are defined.
+type Option struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	// Default reports whether the option starts out on.
+	Default bool `json:"default"`
+
+	// OverlayWhenOff is a directory inside the component's source, copied over
+	// the installed files when the option is switched off.
+	OverlayWhenOff string `json:"overlayWhenOff"`
 }
 
 // Theme is a whole theme: its identity plus the components it ships.
@@ -53,6 +73,10 @@ type Theme struct {
 
 	// AssetDir is the directory the manifest was loaded from.
 	AssetDir string `json:"-"`
+
+	// Stamp names this run's backup directory. It is fixed when the theme loads
+	// so every component installed in one session backs up to the same place.
+	Stamp string `json:"-"`
 }
 
 // LoadManifest reads theme.json from assetDir and records, for each component,
@@ -74,6 +98,7 @@ func LoadManifest(assetDir string) (*Theme, error) {
 	}
 
 	t.AssetDir = assetDir
+	t.Stamp = time.Now().Format("20060102-150405")
 	t.refreshAvailability()
 
 	return &t, nil
@@ -102,6 +127,30 @@ func (t *Theme) validate() error {
 			return fmt.Errorf("component %q has no target", c.ID)
 		}
 		seen[c.ID] = true
+
+		if err := validateOptions(c); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateOptions(c Component) error {
+	seen := make(map[string]bool, len(c.Options))
+
+	for i, o := range c.Options {
+		switch {
+		case o.ID == "":
+			return fmt.Errorf("component %q: option %d has no id", c.ID, i)
+		case seen[o.ID]:
+			return fmt.Errorf("component %q: duplicate option id %q", c.ID, o.ID)
+		case o.Name == "":
+			return fmt.Errorf("component %q: option %q has no name", c.ID, o.ID)
+		case o.OverlayWhenOff == "":
+			return fmt.Errorf("component %q: option %q does nothing when off", c.ID, o.ID)
+		}
+		seen[o.ID] = true
 	}
 
 	return nil

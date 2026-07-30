@@ -1,40 +1,97 @@
 package theme
 
 import (
-	"math/rand/v2"
-	"time"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 )
 
-// Simulated reports whether installs are faked. The UI reads this to warn the
-// user that nothing is actually being written.
-const Simulated = true
+// BackupDir is where a replaced install is kept, relative to the user's data
+// directory. It sits outside the theme directories on purpose: Plasma scans
+// those, so a backup left beside the real thing would show up in System
+// Settings as a second theme.
+const BackupDir = "vanillabox/backups"
 
-// Install applies a single component.
+// Install places one component's files where KDE will find them.
 //
-// It is currently a stub: it sleeps for a plausible amount of time and reports
-// success without touching the filesystem. This is the only place in the
-// program that pretends. Making installs real means replacing the body below
-// with, roughly:
+// It does not apply anything. Once the files are in place the theme appears in
+// System Settings, and it is the user who chooses it there.
 //
-//	copy t.SourcePath(c) into t.TargetPath(c)
-//	run c.ApplyCmd with c.ApplyArgs
-//
-// and flipping Simulated to false. Nothing in internal/ui needs to change: the
-// UI already runs this one component at a time and renders whatever error comes
-// back.
-func (t *Theme) Install(c Component) error {
-	time.Sleep(simulatedWork())
+// choices holds the state of every option, keyed by Option.ID. An option that
+// is off has its overlay copied over the files already written.
+func (t *Theme) Install(c Component, choices map[string]bool) error {
+	src := t.SourcePath(c)
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("read %s: %w", c.Source, err)
+	}
+
+	dst := t.TargetPath(c)
+
+	if err := t.backup(c, dst); err != nil {
+		return fmt.Errorf("back up the existing %s: %w", c.Name, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	if err := copyTree(src, dst); err != nil {
+		return fmt.Errorf("copy %s: %w", c.Name, err)
+	}
+
+	return overlayOptions(c, dst, choices)
+}
+
+// overlayOptions applies the overlay of every option that is switched off. An
+// option that is on needs nothing done: the files as shipped are already what
+// it describes.
+func overlayOptions(c Component, dst string, choices map[string]bool) error {
+	for _, o := range c.Options {
+		if choices[o.ID] {
+			continue
+		}
+
+		// The overlay lives inside what was just installed, and holds no
+		// directory of its own name, so copying it over its own parent cannot
+		// recurse.
+		overlay := filepath.Join(dst, o.OverlayWhenOff)
+		if _, err := os.Stat(overlay); err != nil {
+			return fmt.Errorf("%s: no %q overlay in %s: %w", o.Name, o.OverlayWhenOff, c.Source, err)
+		}
+		if err := copyTree(overlay, dst); err != nil {
+			return fmt.Errorf("%s: %w", o.Name, err)
+		}
+	}
 
 	return nil
 }
 
-// simulatedWork is how long a fake install step takes. The jitter keeps the
-// progress bar from looking mechanical.
-func simulatedWork() time.Duration {
-	const (
-		min = 500 * time.Millisecond
-		max = 900 * time.Millisecond
-	)
+// backup moves an existing install out of the way. Nothing there is not an
+// error: most components will not be installed yet.
+func (t *Theme) backup(c Component, dst string) error {
+	if _, err := os.Lstat(dst); err != nil {
+		return nil
+	}
 
-	return min + time.Duration(rand.Int64N(int64(max-min)))
+	dir := filepath.Join(dataDir(), BackupDir, t.Stamp, c.Target)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	return move(dst, freePath(filepath.Join(dir, filepath.Base(dst))))
+}
+
+// freePath returns path, or the first "path-2", "path-3"... that is free.
+// Installing twice in one session shares a Stamp, and the second run must not
+// land on top of the first run's backup.
+func freePath(path string) string {
+	if _, err := os.Lstat(path); err != nil {
+		return path
+	}
+
+	for n := 2; ; n++ {
+		candidate := path + "-" + strconv.Itoa(n)
+		if _, err := os.Lstat(candidate); err != nil {
+			return candidate
+		}
+	}
 }

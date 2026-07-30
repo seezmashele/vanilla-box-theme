@@ -19,6 +19,7 @@ type screen int
 
 const (
 	screenSelect screen = iota
+	screenOptions
 	screenConfirm
 	screenInstall
 	screenDone
@@ -58,8 +59,14 @@ type Model struct {
 	queue []int
 	fatal error
 
-	screen screen
-	cursor int
+	// choices is the state of every option in the theme, keyed by Option.ID.
+	// It is keyed across all components rather than per component so it can be
+	// handed to Install as-is.
+	choices map[string]bool
+
+	screen       screen
+	cursor       int
+	optionCursor int
 
 	// finishing means the last step is done and we are letting the progress bar
 	// animate up to 100% before moving on.
@@ -78,10 +85,16 @@ type Model struct {
 // New builds the installer UI for a loaded theme.
 func New(t *theme.Theme) Model {
 	items := make([]item, len(t.Components))
+	choices := make(map[string]bool)
+
 	for i, c := range t.Components {
 		items[i] = item{
 			component: c,
 			selected:  c.Default && c.Available,
+		}
+
+		for _, o := range c.Options {
+			choices[o.ID] = o.Default
 		}
 	}
 
@@ -90,6 +103,7 @@ func New(t *theme.Theme) Model {
 	m := Model{
 		theme:    t,
 		items:    items,
+		choices:  choices,
 		screen:   screenSelect,
 		spinner:  spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(s.accent)),
 		progress: newProgress(s),
@@ -179,6 +193,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case screenSelect:
 		return m.handleSelectKey(msg)
+	case screenOptions:
+		return m.handleOptionsKey(msg)
 	case screenConfirm:
 		return m.handleConfirmKey(msg)
 	case screenDone:
@@ -218,9 +234,77 @@ func (m Model) handleSelectKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Confirm):
 		if m.selectedCount() > 0 {
-			m.screen = screenConfirm
+			m.screen = m.afterSelect()
+			m.optionCursor = 0
 			m.updateBindings()
 		}
+	}
+
+	return m, nil
+}
+
+// afterSelect is the screen that follows the checklist: the preferences, or
+// straight to the review when nothing selected has any.
+func (m Model) afterSelect() screen {
+	if len(m.visibleOptions()) == 0 {
+		return screenConfirm
+	}
+
+	return screenOptions
+}
+
+// beforeConfirm is afterSelect in reverse — where esc from the review lands.
+// The two cannot share a helper: skipping the preferences forwards means going
+// to the review, and skipping them backwards means returning to the checklist.
+func (m Model) beforeConfirm() screen {
+	if len(m.visibleOptions()) == 0 {
+		return screenSelect
+	}
+
+	return screenOptions
+}
+
+// visibleOptions are the options belonging to components that are actually
+// going to be installed. Deselecting a component hides its preferences rather
+// than leaving them on screen doing nothing.
+func (m Model) visibleOptions() []theme.Option {
+	var options []theme.Option
+	for _, it := range m.items {
+		if it.selected {
+			options = append(options, it.component.Options...)
+		}
+	}
+
+	return options
+}
+
+func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	options := m.visibleOptions()
+
+	switch {
+	case key.Matches(msg, m.keys.Up):
+		if m.optionCursor > 0 {
+			m.optionCursor--
+		}
+
+	case key.Matches(msg, m.keys.Down):
+		if m.optionCursor < len(options)-1 {
+			m.optionCursor++
+		}
+
+	case key.Matches(msg, m.keys.Toggle):
+		if m.optionCursor < len(options) {
+			id := options[m.optionCursor].ID
+			m.choices[id] = !m.choices[id]
+		}
+
+	case key.Matches(msg, m.keys.Back):
+		m.screen = screenSelect
+		m.updateBindings()
+
+	case key.Matches(msg, m.keys.Confirm):
+		m.screen = screenConfirm
+		m.updateBindings()
 	}
 
 	return m, nil
@@ -229,7 +313,7 @@ func (m Model) handleSelectKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
-		m.screen = screenSelect
+		m.screen = m.beforeConfirm()
 		m.updateBindings()
 
 		return m, nil
@@ -273,7 +357,7 @@ func (m Model) installStep(qi int) tea.Cmd {
 	component := m.items[m.queue[qi]].component
 
 	return func() tea.Msg {
-		return stepDoneMsg{index: qi, err: m.theme.Install(component)}
+		return stepDoneMsg{index: qi, err: m.theme.Install(component, m.choices)}
 	}
 }
 
@@ -325,6 +409,8 @@ func (m Model) View() tea.View {
 	switch m.screen {
 	case screenSelect:
 		body = m.selectView()
+	case screenOptions:
+		body = m.optionsView()
 	case screenConfirm:
 		body = m.confirmView()
 	case screenInstall:
@@ -342,17 +428,18 @@ func (m Model) View() tea.View {
 // keeps the help line honest for free.
 func (m *Model) updateBindings() {
 	selecting := m.screen == screenSelect
+	choosing := m.screen == screenOptions
 	hasSelection := m.selectedCount() > 0
 
-	m.keys.Up.SetEnabled(selecting)
-	m.keys.Down.SetEnabled(selecting)
-	m.keys.Toggle.SetEnabled(selecting)
+	m.keys.Up.SetEnabled(selecting || choosing)
+	m.keys.Down.SetEnabled(selecting || choosing)
+	m.keys.Toggle.SetEnabled(selecting || choosing)
 	m.keys.All.SetEnabled(selecting)
 	m.keys.None.SetEnabled(selecting)
-	m.keys.Confirm.SetEnabled(selecting && hasSelection)
+	m.keys.Confirm.SetEnabled((selecting && hasSelection) || choosing)
 
 	m.keys.Install.SetEnabled(m.screen == screenConfirm)
-	m.keys.Back.SetEnabled(m.screen == screenConfirm)
+	m.keys.Back.SetEnabled(m.screen == screenConfirm || choosing)
 	m.keys.Restart.SetEnabled(m.screen == screenDone)
 	m.keys.Quit.SetEnabled(m.screen != screenInstall)
 }

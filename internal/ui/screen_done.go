@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"vanillabox/internal/theme"
 )
 
 // doneView is the closing summary.
@@ -39,10 +37,10 @@ func (m Model) doneView() string {
 		}
 	}
 
-	if theme.Simulated {
+	if succeeded > 0 {
 		b.WriteString("\n")
-		b.WriteString(m.styles.warning.Render(
-			"This was a simulated run — your desktop has not changed.",
+		b.WriteString(m.styles.subtitle.Render(
+			"Now pick the theme in System Settings → Colors & Themes.",
 		))
 		b.WriteString("\n")
 	}

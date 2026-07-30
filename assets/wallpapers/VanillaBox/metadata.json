@@ -1,9 +1,0 @@
-{
-  "KPlugin": {
-    "Id": "VanillaBox",
-    "Name": "Vanilla Box",
-    "Authors": [{ "Name": "seez" }],
-    "License": "CC-BY-SA-4.0"
-  },
-  "X-KDE-PluginInfo-Category": "wallpaper"
-}
