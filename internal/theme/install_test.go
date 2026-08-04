@@ -372,6 +372,75 @@ func TestSurfaceShapeReachesEverySurface(t *testing.T) {
 	}
 }
 
+// TestTitlebarShapeIsAProductOfTheTint covers the decoration, which is the one
+// piece of artwork two axes reach at once: the tint paints it and the titlebar
+// shape decides its corners.
+func TestTitlebarShapeIsAProductOfTheTint(t *testing.T) {
+	for _, tint := range []string{"neutral", "slate"} {
+		for _, shape := range []string{"square", "rounded"} {
+			t.Run(tint+"-"+shape, func(t *testing.T) {
+				theme, _ := installShipped(t, func(ch Choices) {
+					ch.Values["tint"] = tint
+					ch.Values["titlebar"] = shape
+				})
+
+				deco := readFile(t, filepath.Join(
+					theme.TargetPath(theme.Components[2]), "decoration.svg"))
+
+				// The file opens with a comment explaining the bottom corners, and
+				// its prose contains capital letters that look like path commands.
+				comment := regexp.MustCompile(`(?s)<!--.*?-->`)
+				curved := strings.Contains(comment.ReplaceAllString(deco, ""), " C")
+				if want := shape == "rounded"; curved != want {
+					t.Errorf("titlebar curved = %v, want %v for %s", curved, want, shape)
+				}
+
+				surface := map[string]string{"neutral": "#292929", "slate": "#272a2f"}[tint]
+				if !strings.Contains(deco, surface) {
+					t.Errorf("titlebar is not painted in the %s surface %s", tint, surface)
+				}
+			})
+		}
+	}
+}
+
+// TestButtonStyleSwapsTheWholeTitlebarSet checks that choosing traffic lights
+// replaces every button and the layout file together. A style that changed the
+// artwork but left the old metrics behind would draw circles into boxes sized
+// for glyphs.
+func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
+	for _, style := range []string{"windows", "mac"} {
+		t.Run(style, func(t *testing.T) {
+			theme, _ := installShipped(t, func(ch Choices) {
+				ch.Values["buttons"] = style
+			})
+			dst := theme.TargetPath(theme.Components[2])
+
+			circles := style == "mac"
+			for _, file := range []string{"close.svg", "minimize.svg", "maximize.svg", "restore.svg"} {
+				body := readFile(t, filepath.Join(dst, file))
+
+				if got := strings.Contains(body, "<circle"); got != circles {
+					t.Errorf("%s has circles = %v, want %v", file, got, circles)
+				}
+				// Traffic lights carry no symbol at any state, ever.
+				if got := strings.Contains(body, "<path"); got == circles && circles {
+					t.Errorf("%s should draw no glyph in the traffic-light style", file)
+				}
+			}
+
+			rc := readFile(t, filepath.Join(dst, "VanillaBoxDarkrc"))
+			width := "ButtonWidth=28"
+			if circles {
+				width = "ButtonWidth=20"
+			}
+			if !strings.Contains(rc, width) {
+				t.Errorf("the layout file does not carry the %s metrics (%s)", style, width)
+			}
+		})
+	}
+}
+
 // hexOf turns "41,41,41" into "#292929", the form the artwork writes.
 func hexOf(triple string) string {
 	var r, g, b int

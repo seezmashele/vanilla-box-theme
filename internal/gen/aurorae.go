@@ -78,6 +78,48 @@ func (b button) render() string {
 	return s.String()
 }
 
+// circleButton renders a macOS-style titlebar light: a filled circle, grey at
+// rest and coloured on hover, with no glyph at any point.
+//
+// Hover is per-button and cannot be otherwise. On macOS, pointing at any of the
+// three lights up all three; Aurorae renders each button from its own SVG with
+// no knowledge of its neighbours, so here only the one under the pointer takes
+// colour. That is a limit of the format, not a choice.
+type circleButton struct {
+	Radius  float64
+	Rest    string // grey, window focused and pointer elsewhere
+	Dim     string // window unfocused
+	Hover   string // the light's own colour
+	Pressed string // opacity applied to the hover colour
+}
+
+func (c circleButton) render() string {
+	hit := `<rect x="0" y="0" width="24" height="24" fill="#000" fill-opacity="0"/>`
+
+	circle := func(fill, opacity string) string {
+		alpha := ""
+		if opacity != "" {
+			alpha = fmt.Sprintf(` opacity="%s"`, opacity)
+		}
+
+		return fmt.Sprintf(`<circle cx="12" cy="12" r="%s" fill="%s"%s/>`, n(c.Radius), fill, alpha)
+	}
+	group := func(id string, body ...string) string {
+		return fmt.Sprintf(`<g id="%s-center">%s</g>`, id, strings.Join(body, ""))
+	}
+
+	var s strings.Builder
+
+	s.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">` + "\n")
+	s.WriteString(group("active", hit, circle(c.Rest, "")))
+	s.WriteString(group("hover", hit, circle(c.Hover, "")))
+	s.WriteString(group("pressed", hit, circle(c.Hover, c.Pressed)))
+	s.WriteString(group("deactivated", hit, circle(c.Dim, "")))
+	s.WriteString("\n</svg>\n")
+
+	return s.String()
+}
+
 // auroraeRC renders the decoration's layout file. Its metrics depend on both
 // the decoration shape and the button style, which is why it is the one file
 // resolved from a pair of axes rather than laid down by an overlay.

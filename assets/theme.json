@@ -1,7 +1,7 @@
 {
   "name": "Vanilla Box Dark",
   "id": "vanilla-box-dark",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Sizwe",
   "description": "A minimal, modern look for KDE Plasma 6 — dark variant.",
   "components": [
@@ -117,9 +117,37 @@
       "source": "aurorae/themes/VanillaBoxDark",
       "target": "aurorae/themes",
       "default": true,
+      "options": [
+        {
+          "id": "titlebar",
+          "name": "Titlebar corners",
+          "description": "Top corners of the window frame",
+          "kind": "select",
+          "defaultValue": "square",
+          "values": [
+            { "id": "square", "name": "Square" },
+            { "id": "rounded", "name": "Rounded" }
+          ]
+        },
+        {
+          "id": "buttons",
+          "name": "Window buttons",
+          "description": "Close, minimise and maximise",
+          "kind": "select",
+          "defaultValue": "windows",
+          "values": [
+            { "id": "windows", "name": "Symbols" },
+            {
+              "id": "mac",
+              "name": "Traffic lights",
+              "overlay": { "from": "variants/buttons/mac" }
+            }
+          ]
+        }
+      ],
       "resolved": [
         {
-          "source": "variants/decoration/{tint}/decoration.svg",
+          "source": "variants/decoration/{tint}-{titlebar}/decoration.svg",
           "target": "decoration.svg"
         }
       ]

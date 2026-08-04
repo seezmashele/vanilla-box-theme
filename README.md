@@ -95,15 +95,26 @@ tree:
 
 ## Preferences
 
-Five preferences ship. Two are choices; three are switches.
+Eight preferences ship. Five are choices; three are switches.
 
 | Preference | Values | Changes |
 | --- | --- | --- |
 | Surface colour | Neutral, Slate, Rose | panels, popups and window backgrounds |
 | Accent | Sand, Ash, Moss, Steel, Clay, Plum | selection, highlights, the active task |
+| Corners | Rounded, Square | panels, popups, buttons, inputs, list items |
+| Titlebar corners | Square, Rounded | the top corners of the window frame |
+| Window buttons | Symbols, Traffic lights | close, minimise and maximise |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
+
+Titlebars are square by default. The rounded variant cannot round its *bottom* corners — see the
+comment in `decoration.svg` — so square is the only shape without a compromise.
+
+Traffic lights are grey circles that take a muted colour on hover, and never show a symbol. They
+stay on the right, where KDE puts window buttons; macOS would put them on the left, and you can
+move them yourself in System Settings → Window Decorations without reinstalling. Aurorae gives each
+button its own artwork, so hovering one lights only that one rather than all three.
 
 An option never edits a file. It only decides which already-written bytes get copied, so the
 artwork stays the only place the theme's looks are defined. A switch names an overlay to lay down
@@ -132,8 +143,13 @@ go generate ./...
 ```
 
 Adding a tint or an accent is an edit to that file — plus the matching value in `theme.json`, so
-the installer offers it. `go test ./internal/gen` fails if the committed assets and the tokens have
-drifted apart. See [DESIGN.md](DESIGN.md) for what is generated and what is not.
+the installer offers it. The version and the theme's identity live there too, and are written into
+the three KDE metadata files and the installer's own const.
+
+`go test ./internal/gen` fails if the committed assets and the tokens have drifted apart, and CI
+runs `go generate` and fails on a dirty tree. Anything under `assets/variants/` the generator no
+longer produces is deleted rather than left behind. See [DESIGN.md](DESIGN.md) for what is
+generated and what is not.
 
 ## Backups
 
@@ -150,17 +166,26 @@ beside the real thing would show up in System Settings as a second theme.
 
 ```
 main.go                     flags, asset-dir resolution, program startup
+spec/tokens.json            the only hand-edited input to the generated artwork
 internal/theme/
-  manifest.go               Theme, Component and Option, LoadManifest, path helpers
+  manifest.go               Theme, Component, Option and Choices, LoadManifest
   availability.go           whether each component's files are actually present
-  install.go                copying a component into place, backups, overlays
+  install.go                copying into place, backups, overlays, resolved files
   copy.go                   copyTree and move
+  version.go                generated from spec/tokens.json
+internal/gen/               go generate ./... -> assets/
+  frame.go                  panel and popup frames
+  control.go                buttons, inputs and list items
+  aurorae.go                window decoration and titlebar buttons
+  colors.go                 colour schemes
+  identity.go               the metadata KDE wants in three formats
 internal/ui/
   model.go                  root model, screen state machine, install plumbing
   keys.go                   bindings, enabled per screen so help stays honest
   styles.go                 lipgloss styles, adapting to light or dark terminals
   screen_*.go               the five screens plus the error view
 assets/                     theme.json and the theme's files
+  variants/                 the alternatives each preference picks from
 ```
 
 ## Tests

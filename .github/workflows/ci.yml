@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
+      # The artwork is generated from spec/tokens.json and committed. If the two
+      # disagree, someone edited assets/ by hand — which the next generate would
+      # silently overwrite.
+      - name: generated files are up to date
+        run: |
+          go generate ./...
+          if ! git diff --quiet; then
+            echo "go generate changed tracked files; commit the regenerated output:"
+            git --no-pager diff --stat
+            exit 1
+          fi

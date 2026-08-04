@@ -13,11 +13,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
 
 type tokens struct {
+	Theme      identity                     `json:"theme"`
 	Foreground map[string]string            `json:"foreground"`
 	Palettes   map[string]map[string]string `json:"palettes"`
 	Accents    map[string]string            `json:"accents"`
@@ -33,6 +35,10 @@ type tokens struct {
 // between close and the rest because close is the only button that earns a
 // colour of its own.
 type buttonStyle struct {
+	// Kind picks the treatment: "glyph" shows a symbol always and gains a plate
+	// on hover; "circle" shows no symbol and gains colour on hover.
+	Kind string `json:"kind"`
+
 	PlateRadius float64 `json:"plateRadius"`
 
 	ClosePlate   string `json:"closePlate"`
@@ -44,6 +50,15 @@ type buttonStyle struct {
 
 	Rest string `json:"rest"`
 	Dim  string `json:"dim"`
+
+	// The circle treatment.
+	CircleRadius   float64 `json:"circleRadius"`
+	RestColor      string  `json:"restColor"`
+	DimColor       string  `json:"dimColor"`
+	Close          string  `json:"close"`
+	Minimize       string  `json:"minimize"`
+	Maximize       string  `json:"maximize"`
+	PressedOpacity string  `json:"pressedOpacity"`
 
 	Width  int `json:"width"`
 	Height int `json:"height"`
@@ -63,6 +78,11 @@ const (
 	// under variants/ and copied over an install by the option that names it.
 	defaultTint   = "neutral"
 	defaultAccent = "sand"
+
+	// Square titlebars are the default: the rounded variant cannot round its
+	// bottom corners under Aurorae, so square is the shape without a compromise.
+	defaultTitlebar = "square"
+	defaultButtons  = "windows"
 
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30
@@ -100,6 +120,72 @@ func run(root string) error {
 		}
 	}
 
+	return prune(root, files)
+}
+
+// prune deletes anything under variants/ the generator did not just write.
+//
+// Renaming a variant otherwise leaves the old one behind, committed and
+// installable, describing a combination the manifest no longer offers. Only
+// variants/ is swept: the rest of assets/ mixes generated files with
+// hand-maintained ones, and nothing there should be deleted by a build.
+func prune(root string, written map[string]string) error {
+	dir := filepath.Join(root, filepath.FromSlash(variantDir))
+	if _, err := os.Stat(dir); err != nil {
+		return nil
+	}
+
+	var stale []string
+
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if _, ok := written[filepath.ToSlash(rel)]; !ok {
+			stale = append(stale, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, path := range stale {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+
+	// Directories the removals emptied would otherwise linger as the shape of a
+	// variant that no longer exists.
+	return removeEmptyDirs(dir)
+}
+
+func removeEmptyDirs(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if err := removeEmptyDirs(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+	}
+
+	if entries, err = os.ReadDir(dir); err == nil && len(entries) == 0 {
+		return os.Remove(dir)
+	}
+
 	return nil
 }
 
@@ -124,7 +210,7 @@ func (tk *tokens) palette(tint string) (map[string]string, error) {
 // allFiles is everything the generator writes: the theme as shipped, plus the
 // variant trees the installer picks from.
 func allFiles(tk *tokens) (map[string]string, error) {
-	out, err := build(tk, defaultTint, defaultAccent, "rounded", "rounded", "windows")
+	out, err := build(tk, defaultTint, defaultAccent, "rounded", defaultTitlebar, defaultButtons)
 	if err != nil {
 		return nil, err
 	}
@@ -161,16 +247,29 @@ func variants(tk *tokens) (map[string]string, error) {
 
 		// The window decoration is the only artwork that paints a palette colour
 		// rather than deferring to the scheme, so it is the only thing a tint
-		// generates beyond ini files.
-		deco, err := tk.decoration(tint, "rounded")
-		if err != nil {
-			return nil, err
+		// generates beyond ini files. It is also the only artwork the titlebar
+		// shape reaches, which makes it a product of the two.
+		for shape := range tk.DecorationShape {
+			deco, err := tk.decoration(tint, shape)
+			if err != nil {
+				return nil, err
+			}
+			out[variantDir+"/decoration/"+tint+"-"+shape+"/decoration.svg"] = deco
 		}
-		out[variantDir+"/decoration/"+tint+"/decoration.svg"] = deco
 	}
 
 	for accent, hex := range tk.Accents {
 		out[variantDir+"/defaults/"+accent+"/defaults"] = lookAndFeelDefaults(hex, "", "")
+	}
+
+	for name := range tk.ButtonStyles {
+		files, err := tk.titlebarButtons(name)
+		if err != nil {
+			return nil, err
+		}
+		for path, content := range files {
+			out[variantDir+"/buttons/"+name+"/"+path] = content
+		}
 	}
 
 	// Both surface shapes are written, the shipped one included. The transparency
@@ -270,6 +369,64 @@ func schemes(tk *tokens, tint, accent string) (app, shell string, err error) {
 	return a.render(), s.render(), nil
 }
 
+// titlebarButtons renders the four buttons and the layout file for one button
+// style. The rc travels with them because its metrics are the button sizes, so
+// the two cannot disagree about how big a button is.
+//
+// Buttons do not multiply by tint: they are painted in the foreground colours,
+// and those are held still across every tint.
+func (tk *tokens) titlebarButtons(name string) (map[string]string, error) {
+	bs, ok := tk.ButtonStyles[name]
+	if !ok {
+		return nil, fmt.Errorf("no button style %q", name)
+	}
+
+	palette, err := tk.palette(defaultTint)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]string{"VanillaBoxDarkrc": auroraeRC(palette, bs, titleHeight)}
+
+	if bs.Kind == "circle" {
+		// Maximize and restore are the same light: the button changes what it
+		// does, not what it means.
+		for file, colour := range map[string]string{
+			"close": bs.Close, "minimize": bs.Minimize,
+			"maximize": bs.Maximize, "restore": bs.Maximize,
+		} {
+			out[file+".svg"] = circleButton{
+				Radius: bs.CircleRadius, Rest: bs.RestColor, Dim: bs.DimColor,
+				Hover: colour, Pressed: bs.PressedOpacity,
+			}.render()
+		}
+
+		return out, nil
+	}
+
+	plain := button{
+		PlateFill: palette["text"], HoverOpacity: bs.PlainHover, PressedOpacity: bs.PlainPressed,
+		Radius: bs.PlateRadius, GlyphFill: palette["text"], RestOpen: bs.Rest, DimOpacity: bs.Dim,
+	}
+
+	for file, glyph := range map[string]string{
+		"minimize": glyphMinimize, "maximize": glyphMaximize, "restore": glyphRestore,
+	} {
+		b := plain
+		b.Glyph = glyph
+		out[file+".svg"] = b.render()
+	}
+
+	closeBtn := plain
+	closeBtn.PlateFill = bs.ClosePlate
+	closeBtn.HoverOpacity = bs.CloseHover
+	closeBtn.PressedOpacity = bs.ClosePressed
+	closeBtn.Glyph = glyphClose
+	out["close.svg"] = closeBtn.render()
+
+	return out, nil
+}
+
 // decoration renders the window frame for one tint and decoration shape.
 func (tk *tokens) decoration(tint, decoShape string) (string, error) {
 	palette, err := tk.palette(tint)
@@ -323,41 +480,30 @@ func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[stri
 		out[style+"/"+path] = content
 	}
 
-	bs, ok := tk.ButtonStyles[buttons]
-	if !ok {
-		return nil, fmt.Errorf("no button style %q", buttons)
-	}
-
 	deco, err := tk.decoration(tint, decoShape)
 	if err != nil {
 		return nil, err
 	}
 	out[auroraeDir+"/decoration.svg"] = deco
 
-	plain := button{
-		PlateFill: palette["text"], HoverOpacity: bs.PlainHover, PressedOpacity: bs.PlainPressed,
-		Radius: bs.PlateRadius, GlyphFill: palette["text"], RestOpen: bs.Rest, DimOpacity: bs.Dim,
+	btns, err := tk.titlebarButtons(buttons)
+	if err != nil {
+		return nil, err
 	}
-	closeBtn := plain
-	closeBtn.PlateFill = bs.ClosePlate
-	closeBtn.HoverOpacity = bs.CloseHover
-	closeBtn.PressedOpacity = bs.ClosePressed
-
-	for name, glyph := range map[string]string{
-		"minimize": glyphMinimize,
-		"maximize": glyphMaximize,
-		"restore":  glyphRestore,
-	} {
-		b := plain
-		b.Glyph = glyph
-		out[auroraeDir+"/"+name+".svg"] = b.render()
+	for path, content := range btns {
+		out[auroraeDir+"/"+path] = content
 	}
 
-	closeBtn.Glyph = glyphClose
-	out[auroraeDir+"/close.svg"] = closeBtn.render()
+	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults(acc, "", "")
 
-	out[auroraeDir+"/VanillaBoxDarkrc"] = auroraeRC(palette, bs, titleHeight)
-	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults(acc, bs.ButtonsOnLeft, bs.ButtonsOnRight)
+	// Identity: the same handful of facts KDE wants in three formats, plus the
+	// installer's own copy of the version.
+	id := tk.Theme
+	out[style+"/metadata.json"] = id.kPluginMetadata(id.StyleID, "X-Plasma-API", "5.0")
+	out[lookFeel+"/metadata.json"] = id.kPluginMetadata(
+		id.LookAndFeelID, "KPackageStructure", "Plasma/LookAndFeel")
+	out[auroraeDir+"/metadata.desktop"] = id.desktopEntry()
+	out["internal/theme/version.go"] = id.versionSource()
 
 	return out, nil
 }

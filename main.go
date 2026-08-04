@@ -16,15 +16,13 @@ import (
 	"vanillabox/internal/ui"
 )
 
-const version = "0.1.0"
-
 func main() {
 	assetDir := flag.String("assets", "", "directory holding the theme assets")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println("vanillabox", version)
+		fmt.Println("vanillabox", theme.Version)
 
 		return
 	}

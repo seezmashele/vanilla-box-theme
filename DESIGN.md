@@ -33,8 +33,8 @@ instead, because **each axis owns a disjoint set of files**.
 | Tint | `neutral` | runtime, plus one SVG | the two `colors` files, `decoration.svg` |
 | Accent | `sand` | runtime | the two `colors` files, the look-and-feel `defaults` |
 | Surface shape | `rounded` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
-| Decoration shape | `square` | baked | `aurorae/decoration.svg` |
-| Button style | `windows` | baked | `aurorae/{close,minimize,maximize,restore}.svg` |
+| Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the tint |
+| Button style | `windows` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
 
 Window decorations are square by default and panels and popups are rounded. These are separate
@@ -55,8 +55,14 @@ decoration.svg` explains that Aurorae cannot round the bottom corners of a windo
 a bottom border to draw the curve into, and anything narrower than the radius lets the client's
 square corner show through. That limitation now applies only to the non-default rounded variant.
 
-Only one file is claimed by two axes: the Aurorae `VanillaBoxDarkrc`, whose `[Layout]` metrics
-depend on both decoration shape and button style. See [Resolved files](#resolved-files).
+One file is claimed by two axes: `decoration.svg`, which the tint paints and the titlebar shape
+gives corners to. It is written as a product, `variants/decoration/<tint>-<shape>/`. See
+[Resolved files](#resolved-files).
+
+`VanillaBoxDarkrc` turned out to belong to one axis after all. Its `[Layout]` metrics are the
+button sizes, and the titlebar height does not change with the corner radius — so it travels with
+the button style as part of that overlay rather than needing a combination of its own. Shipping the
+metrics beside the artwork they describe also makes it impossible to swap one without the other.
 
 ## Colour
 
@@ -291,16 +297,40 @@ the panel puts its nine tiles on one line where the dialog frames use one per li
 that from a template means encoding whitespace in the template, which is worse to read than the
 code that decides it.
 
-Twenty-four files are generated and nine are not. Artwork no axis touches — `line.svg`,
-`plasmoidheading.svg`, `tabbar.svg`, `tasks.svg`, the two `metadata.json`, `metadata.desktop` and
-`theme.json` — stays hand-maintained, because generating a file that never varies costs a builder
-and buys nothing.
+Artwork no axis touches — `line.svg`, `plasmoidheading.svg`, `tabbar.svg`, `tasks.svg`,
+`scrollwidget.svg` — stays hand-maintained, because generating a file that never varies costs a
+builder and buys nothing.
+
+The identity files are the exception to that rule, and are generated despite never varying: KDE
+wants the same handful of facts in three formats — two `metadata.json` and a `metadata.desktop` —
+and the installer wants the version in a fourth. Four hand-maintained copies of one version number
+is four chances to disagree, so all four are written from `spec/tokens.json`. `internal/theme/
+version.go` is generated Go rather than something read at runtime, so `vanillabox --version` still
+answers when the asset directory cannot be found at all.
+
+`assets/theme.json` keeps its own copy, because the manifest stays hand-written. A test asserts the
+two agree.
 
 `scrollbar.svg` is the deliberate exception. It is an Inkscape document: 987 lines and 32KB of
 editor metadata to express 22 rectangles, unlike every other file in the theme. Its whole
-contribution to the shape axis is one `rx` on the slider, so it stays hand-maintained and a square
-variant would override it with a single-file overlay rather than a generator. Rewriting it as
-clean SVG is worthwhile cleanup, but it is not variant work.
+contribution to the shape axis is one `rx` on the slider, so it stays hand-maintained and takes no
+part in any variant. Rewriting it as clean SVG is worthwhile cleanup, but it is not variant work.
+
+### Widgets that exist only to paint nothing
+
+A theme that does not ship a widget falls back to the default theme's copy, so an omission is not
+neutral — it inherits Breeze. `widgets/scrollwidget.svg` is here for that reason alone: Breeze's
+version paints `border-top`, `border-left`, `border-right` and `border-bottom` in `currentColor` at
+full opacity, which is a 1px box drawn around every scroll area in a Plasma popup. Nothing outside
+that file can switch it off, so the only way not to have it is to ship a `scrollwidget` whose tiles
+are all `fill:none`.
+
+Its 1px edges are kept rather than collapsed to zero, so the insets Plasma reads match what Breeze
+reported and nothing reflows. The scrollbar itself is untouched.
+
+Thirty-one other widgets still fall back — `frame`, `listitem`, `slider`, `switch` and the rest —
+and each is a place Breeze can show through. They are only worth shipping when one of them is
+actually seen to be wrong.
 
 ### Three corner idioms
 

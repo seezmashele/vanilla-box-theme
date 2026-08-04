@@ -156,6 +156,14 @@ func TestShippedManifestIsValid(t *testing.T) {
 		t.Errorf("%d of %d shipped components are unavailable; the asset tree is incomplete",
 			len(theme.Components)-len(theme.Available()), len(theme.Components))
 	}
+
+	// Everything else that carries a version is generated from spec/tokens.json.
+	// The manifest stays hand-written, so this is what keeps it in step.
+	if theme.Version != Version {
+		t.Errorf("theme.json says %q but the generated version is %q — "+
+			"bump spec/tokens.json and assets/theme.json together",
+			theme.Version, Version)
+	}
 }
 
 func writeFile(t *testing.T, path, content string) {

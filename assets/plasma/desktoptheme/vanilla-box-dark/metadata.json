@@ -6,11 +6,11 @@
                 "Name": "Sizwe"
             }
         ],
-        "Description": "A minimal, modern look \u2014 dark variant",
+        "Description": "A minimal, modern look — dark variant",
         "Id": "vanilla-box-dark",
         "License": "GPL-3.0-or-later",
         "Name": "Vanilla Box Dark",
-        "Version": "0.1"
+        "Version": "0.2.0"
     },
     "X-Plasma-API": "5.0"
 }
