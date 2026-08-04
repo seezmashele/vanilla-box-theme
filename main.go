@@ -1,6 +1,8 @@
 // Command vanillabox is a terminal installer for the Vanilla Box KDE theme.
 package main
 
+//go:generate go run ./internal/gen -root .
+
 import (
 	"flag"
 	"fmt"
