@@ -19,7 +19,7 @@ func TestGeneratedFilesAreCommitted(t *testing.T) {
 		t.Fatalf("loadTokens: %v", err)
 	}
 
-	files, err := build(tk, "neutral", "sand", "rounded", "rounded", "windows")
+	files, err := allFiles(tk)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

@@ -70,7 +70,7 @@ func (t *Theme) overlayOptions(c Component, dst string, choices Choices) error {
 		if overlay.Empty() {
 			continue
 		}
-		if err := t.applyOverlay(overlay, dst); err != nil {
+		if err := t.applyOverlay(overlay, dst, choices); err != nil {
 			return fmt.Errorf("%s: %w", o.Name, err)
 		}
 	}
@@ -80,10 +80,20 @@ func (t *Theme) overlayOptions(c Component, dst string, choices Choices) error {
 
 // applyOverlay copies an overlay's files over an install. Naming no files means
 // the whole tree, which is how a variant that replaces everything is written.
-func (t *Theme) applyOverlay(o Overlay, dst string) error {
-	root := filepath.Join(t.AssetDir, filepath.FromSlash(o.From))
+//
+// From takes the same {option-id} placeholders a resolved path does. That is
+// what keeps two overlays from fighting: the opaque copy of a surface has to
+// come from the shape currently chosen, or turning transparency off would
+// quietly restore the other shape's corners.
+func (t *Theme) applyOverlay(o Overlay, dst string, choices Choices) error {
+	from, err := choices.expand(o.From)
+	if err != nil {
+		return err
+	}
+
+	root := filepath.Join(t.AssetDir, filepath.FromSlash(from))
 	if _, err := os.Stat(root); err != nil {
-		return fmt.Errorf("no %q overlay: %w", o.From, err)
+		return fmt.Errorf("no %q overlay: %w", from, err)
 	}
 
 	if len(o.Files) == 0 {
@@ -95,7 +105,7 @@ func (t *Theme) applyOverlay(o Overlay, dst string) error {
 
 		src := filepath.Join(root, rel)
 		if _, err := os.Stat(src); err != nil {
-			return fmt.Errorf("%s has no %s: %w", o.From, name, err)
+			return fmt.Errorf("%s has no %s: %w", from, name, err)
 		}
 		if err := copyTree(src, filepath.Join(dst, rel)); err != nil {
 			return err
@@ -124,6 +134,30 @@ func (t *Theme) writeResolved(c Component, dst string, choices Choices) error {
 	}
 
 	return nil
+}
+
+// Placeholders lists the option ids a resolved path depends on. It is what lets
+// a preference be declared once and still be offered whenever any component
+// actually consumes it, rather than only when its declaring component is
+// selected.
+func Placeholders(path string) []string {
+	var ids []string
+
+	for {
+		open := strings.IndexByte(path, '{')
+		if open < 0 {
+			return ids
+		}
+
+		end := strings.IndexByte(path[open:], '}')
+		if end < 0 {
+			return ids
+		}
+		end += open
+
+		ids = append(ids, path[open+1:end])
+		path = path[end+1:]
+	}
 }
 
 // expand replaces every {option-id} in path with the chosen value. An unknown

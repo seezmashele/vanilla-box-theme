@@ -49,6 +49,7 @@ XDG_DATA_HOME=/tmp/vbtest ./vanillabox
 | --- | --- |
 | `↑`/`k`, `↓`/`j` | Move |
 | `space` | Toggle a component or preference |
+| `←`/`h`, `→`/`l` | Change a preference that has more than two values |
 | `a` / `n` | Select all / none |
 | `enter` | Continue, then install |
 | `esc` | Back |
@@ -94,41 +95,45 @@ tree:
 
 ## Preferences
 
-A component can declare options that change what gets written:
+Five preferences ship. Two are choices; three are switches.
 
-```json
-"options": [
-  {
-    "id": "transparency",
-    "name": "Transparency",
-    "description": "Translucent panel, popups and dialogs",
-    "default": true,
-    "overlayWhenOff": "opaque"
-  }
-]
+| Preference | Values | Changes |
+| --- | --- | --- |
+| Surface colour | Neutral, Slate, Rose | panels, popups and window backgrounds |
+| Accent | Sand, Ash, Moss, Steel, Clay, Plum | selection, highlights, the active task |
+| Translucent panel | on/off | `widgets/panel-background.svg` |
+| Translucent popups & menus | on/off | `dialogs/background.svg` |
+| Translucent applets | on/off | `widgets/background.svg` |
+
+An option never edits a file. It only decides which already-written bytes get copied, so the
+artwork stays the only place the theme's looks are defined. A switch names an overlay to lay down
+when it is off; a choice feeds a `{placeholder}` in a path under `assets/variants/`.
+
+The launcher and the system tray popups cannot be separated: Plasma renders both from one
+`dialogs/background`, so one switch covers them and is named for both. Tooltips have no switch
+because they are opaque in the base artwork, and a switch that changes nothing is worse than none.
+
+`widgets/tasks.svg` is deliberately outside the transparency switches. Its `0.3`/`0.4` values are
+white `normal` and `hover` highlights drawn on top of the panel, not backgrounds — forcing them
+opaque would give solid white task buttons.
+
+`opaque/` and `solid/` are installed whichever way the switches go: Plasma falls back to those
+prefixes on its own when compositing is off.
+
+A preference is shown when the current selection actually uses it, whether the component declares
+it or reads it through a variant path. The step is skipped entirely when nothing selected uses any.
+
+## Generated files
+
+Most of `assets/` is written from `spec/tokens.json`:
+
+```sh
+go generate ./...
 ```
 
-An option never edits a file. `overlayWhenOff` names a directory inside the component, and
-switching the option off copies that directory over the files already installed — so the theme's
-artwork stays the only place its looks are defined.
-
-That works because a Plasma style already ships its own variants. `opaque/` holds the four
-backgrounds with their `fill-opacity` dropped:
-
-```
-widgets/panel-background.svg   widgets/background.svg
-widgets/tooltip.svg            dialogs/background.svg
-```
-
-`widgets/tasks.svg` is deliberately not among them. Its `0.3`/`0.4` values are white `normal` and
-`hover` highlights drawn on top of the panel, not backgrounds — forcing them opaque would give
-solid white task buttons. So the task manager keeps its translucency either way.
-
-`opaque/` and `solid/` are installed whichever way the option goes: Plasma falls back to them on
-its own when compositing is off.
-
-Options are shown only for components that are actually selected, and the preferences step is
-skipped entirely when nothing selected has any.
+Adding a tint or an accent is an edit to that file — plus the matching value in `theme.json`, so
+the installer offers it. `go test ./internal/gen` fails if the committed assets and the tokens have
+drifted apart. See [DESIGN.md](DESIGN.md) for what is generated and what is not.
 
 ## Backups
 

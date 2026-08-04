@@ -30,9 +30,9 @@ instead, because **each axis owns a disjoint set of files**.
 
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
-| Tint | `neutral` | runtime | the two `colors` files |
-| Accent | `sand` | runtime | `AccentColor` in the look-and-feel `defaults` |
-| Surface shape | `rounded` | baked | `panel-background`, `dialogs/background`, `widgets/background`, `button`, `tooltip` |
+| Tint | `neutral` | runtime, plus one SVG | the two `colors` files, `decoration.svg` |
+| Accent | `sand` | runtime | the two `colors` files, the look-and-feel `defaults` |
+| Surface shape | `rounded` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
 | Decoration shape | `square` | baked | `aurorae/decoration.svg` |
 | Button style | `windows` | baked | `aurorae/{close,minimize,maximize,restore}.svg` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
@@ -41,8 +41,14 @@ Window decorations are square by default and panels and popups are rounded. Thes
 axes precisely so that default is expressible.
 
 Tint and accent are chosen independently — the surface colour and the highlight colour are two
-questions, and pairing them would multiply the menu without adding expressiveness. Both are data,
-so neither generates a single SVG.
+questions, and pairing them would multiply the menu without adding expressiveness.
+
+A tint moves surfaces only. Text, inactive text and the colour that sits on the highlight are held
+still across all three, because warm text on a blue surface reads as a mistake rather than as a
+variant. It also keeps the tint almost free: of the twenty-four generated files, the only artwork a
+tint repaints is `decoration.svg`, which paints the titlebar directly instead of deferring to the
+scheme. Everything else either resolves its colour at paint time or carries the palette only as an
+editor fallback.
 
 Square decorations also retire a compromise. The comment in `aurorae/themes/VanillaBoxDark/
 decoration.svg` explains that Aurorae cannot round the bottom corners of a window — rounding needs
@@ -132,15 +138,19 @@ So the accent should drive `Colors:Selection` in both `colors` files as well as 
 knowingly reverses the original decision for every non-neutral accent, which is the point of
 offering the axis.
 
-Today's two halves disagree: applications get `AccentColor=174,142,108` while the shell's highlight
-is `143,143,143` grey. An accent token therefore carries both a `highlight` and a `kde` value, and
-the shipped `sand` sets them to today's mismatched pair so the generator can reproduce the current
-theme exactly.
+The two halves used to disagree — applications got `AccentColor=174,142,108` while the shell's
+highlight was `143,143,143` grey. They are now one colour per accent, driving both. Under the
+default `sand` that turns the active task underline from grey to tan, which is the point: an accent
+nobody can see is not worth choosing. `ash` restores a grey highlight for anyone who preferred it.
 
-That split is a transitional measure, not the design. Adopting the axis properly means collapsing
-the two to one colour per accent, which turns the active task underline from grey to tan under
-`sand`. Doing it now would have changed the shipped look in the middle of a phase whose whole
-point was changing nothing, so it belongs with the other accent work.
+Accents are named apart from the tints — `sand`, `ash`, `moss`, `steel`, `clay`, `plum` against
+`neutral`, `slate`, `rose` — so the preferences screen can never read "Colour: Slate, Accent:
+Slate".
+
+Baking the accent into the theme's own `colors` file settles the open question rather than
+answering it. If the shell does resolve `kdeglobals`, writing the same value in both places changes
+nothing; if it does not, writing it is the only thing that works. The cost is that the two colour
+files become a product of tint and accent, which is 36 files of a few kilobytes each.
 
 ## Buttons
 
@@ -156,9 +166,28 @@ them.
 **Metrics differ.** `ButtonWidth=28 ButtonHeight=26` suits glyph buttons; traffic lights want
 roughly 16px circles and tighter spacing.
 
-**The interaction model inverts.** The current Windows-style buttons are monochrome at rest and
-reveal colour on hover. Traffic lights are coloured at rest and reveal a glyph on hover. This is a
-per-style token pair, not a shared pattern with different values.
+**The interaction model differs.** The Windows-style buttons are monochrome glyphs at rest that
+gain a coloured plate on hover. The Mac style has no glyphs at all: three grey circles at rest,
+which take a muted traffic-light colour on hover. This is a per-style treatment, not a shared
+pattern with different values.
+
+The traffic-light colours are muted rather than the authentic `#ff5f57`/`#febc2e`/`#28c840`. In a
+desktop whose selection is grey and whose accents top out around `#b8776a`, authentic values would
+be the most saturated pixels on screen by a wide margin.
+
+**Hover is per-button, and cannot be otherwise.** On macOS, hovering any of the three lights up all
+three. Aurorae renders each button from its own SVG with no knowledge of its neighbours, so here
+hovering close colours only close. This is a limitation of the format, not a choice.
+
+**The buttons stay on the right.** Left is the macOS convention and the only place the traffic-light
+shape normally appears, so the Mac variant is the shape without the placement. It is deliberate:
+button order is a `kwinrc` setting rather than an Aurorae file, so writing it would overwrite a
+preference the user may have set for reasons of their own — and they can move the buttons in System
+Settings at any time without reinstalling. Left is what a macOS switcher, an RTL locale (where KWin
+mirrors the layout regardless) or an elementary-style desktop would expect.
+
+Leaving the order alone also means the KWin button letter codes never have to be verified, which is
+why that open question is now closed rather than answered.
 
 ## Transparency
 
@@ -194,6 +223,13 @@ original transparency option read its overlay out of the tree it had just instal
 while every overlay lived inside one component. It does not survive a tint, whose two `colors`
 files belong to two different components, so overlays now name an asset-relative directory and the
 two cases work the same way.
+
+`from` also takes `{option-id}` placeholders, and the transparency switches need them:
+`variants/surfaces/{surfaces}/opaque`. Two overlays land on the same file here — the square variant
+replaces every surface, and then a switch replaces one of them again with its opaque copy. Drawing
+that copy from a fixed path would put rounded corners back on exactly the surfaces the user made
+opaque, and only on those. Options are applied in the order the manifest declares them, so the
+shape select is written before the switches that draw from it.
 
 ## Tokens
 
@@ -244,12 +280,9 @@ internal/gen/
   colors.go                 KColorScheme ini from a palette and an accent
 assets/                     generated; committed
   variants/
-    colors/<tint>[-<accent>]/   the two colors files
-    surfaces-square/            the five surface SVGs
-    deco-rounded/               decoration.svg
-    buttons-mac/                the four button SVGs
-    rc/<deco>-<buttons>/        VanillaBoxDarkrc
-    defaults/<accent>-<buttons>/    look-and-feel defaults
+    colors/<tint>-<accent>/     the two colors files          36 files
+    decoration/<tint>/          decoration.svg                 3 files
+    defaults/<accent>/          look-and-feel defaults         6 files
 ```
 
 The emitters are Go rather than text templates. Regeneration has to be byte-for-byte against
@@ -313,26 +346,37 @@ value with no overlay is the one that matches the artwork as generated — `neut
 An option still never edits a file. It only chooses which pre-generated bytes get copied, which is
 the same guarantee the transparency option makes today.
 
+### Where a preference is offered
+
+A preference is shown when the current selection actually uses it — either because a selected
+component declares it, or because a selected component names it in a resolved path. The tint is
+declared once, on the Plasma style, and the colour scheme reads it through
+`variants/colors/{tint}-{accent}/…`; installing only the colour scheme still offers the tint.
+
+The alternative was repeating every value list on every component that consumes it, which is the
+same data in three places and three places for it to drift.
+
 ### Resolved files
 
 Two files depend on a combination of axes rather than a single one. Rather than layer overlays and
 depend on ordering, they are generated per combination and selected by substituting option ids into
 a path:
 
+`source` is relative to the asset directory; `target` is relative to the component's installed
+directory, and an empty target means the component's own path — which is what a component that
+installs a single file needs.
+
 ```json
 "resolved": [
-  { "source":"variants/rc/{decorationShape}-{buttonStyle}/VanillaBoxDarkrc",
-    "target":"aurorae/themes/VanillaBoxDark/VanillaBoxDarkrc" },
-  { "source":"variants/defaults/{accent}-{buttonStyle}/defaults",
-    "target":"plasma/look-and-feel/org.vanillabox.dark/contents/defaults" },
-  { "source":"variants/colors/{tint}/colors",
-    "target":"plasma/desktoptheme/vanilla-box-dark/colors" }
+  { "source":"variants/colors/{tint}-{accent}/colors", "target":"colors" },
+  { "source":"variants/defaults/{accent}/defaults",    "target":"contents/defaults" },
+  { "source":"variants/decoration/{tint}/decoration.svg", "target":"decoration.svg" }
 ]
 ```
 
-Four rc files, and two defaults files per accent. The `colors` path grows a second key —
-`{tint}-{accent}` — only if the shell turns out not to follow `kdeglobals`; see
-[Accent](#accent). All are tiny ini, and all are generated.
+Resolved files are written on every install, the default combination included. There is no special
+case for "this is the one already in the tree", so the path that runs for `neutral`/`sand` is the
+same path that runs for everything else.
 
 The `defaults` file is the one place several axes meet, because it is a single KDE-defined file
 that happens to carry an accent, a colour scheme name, a Plasma theme name and a button order.
@@ -351,8 +395,11 @@ Backups continue to work as described in the README.
   `current-color-scheme` block, and no system Aurorae theme is installed to compare against. If it
   does not, tint multiplies the *generated* titlebar files by three; hand-maintained files stay
   flat either way, so the risk is contained. Worth testing early regardless.
-- **Does the Plasma shell resolve the accent through `kdeglobals`,** or only through the theme's own
-  `colors` file? This decides whether tint and accent stay independent or become a product. See
-  [Accent](#accent). Testable in the same session as the question above: set `AccentColor`, restart
-  the shell, watch the active task underline.
-- **The KWin button letter codes**, as above.
+- **Adding an accent is two edits, not one:** the colour in `spec/tokens.json`, and the value in
+  `assets/theme.json` so the installer offers it. The manifest stays hand-written by decision —
+  the README promises that adding a component is an edit to it rather than to the code, and
+  generating it would buy consistency at the cost of that promise. If the two drift often enough
+  to matter, generating the value lists is the fix.
+- **`scrollbar.svg` keeps its rounded slider in the square variant.** Its `rx` is 2px on a 6px
+  slider, which is close to invisible, and patching it would mean the generator reading and
+  rewriting the one Inkscape document in the tree. Worth doing alongside the rewrite, not before.

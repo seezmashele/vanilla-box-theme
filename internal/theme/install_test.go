@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -247,6 +248,140 @@ func TestTransparencyTogglesActIndependently(t *testing.T) {
 	}
 }
 
+// TestTintAndAccentAreIndependent installs a cross of the two colour axes and
+// checks each reaches what it owns: the tint the surfaces, the accent the
+// selection. They are separate options resolved through one path, so the risk
+// worth testing is that one silently drags the other along.
+func TestTintAndAccentAreIndependent(t *testing.T) {
+	// Surfaces from spec/tokens.json; slate and rose are tints of the same greys.
+	surfaces := map[string]string{
+		"neutral": "41,41,41",
+		"slate":   "39,42,47",
+		"rose":    "43,39,39",
+	}
+	accents := map[string]string{
+		"sand":  "174,142,108",
+		"steel": "125,147,173",
+		"plum":  "162,136,176",
+	}
+
+	for tint, surface := range surfaces {
+		for accent, highlight := range accents {
+			t.Run(tint+"-"+accent, func(t *testing.T) {
+				theme, style := installShipped(t, func(ch Choices) {
+					ch.Values["tint"] = tint
+					ch.Values["accent"] = accent
+				})
+
+				shell := readFile(t, filepath.Join(style, "colors"))
+				if !strings.Contains(shell, "[Colors:Window]\nBackgroundAlternate") {
+					t.Fatal("colors is not the scheme this test expects")
+				}
+				if !strings.Contains(shell, "BackgroundNormal="+surface) {
+					t.Errorf("shell colors missing the %s surface %s", tint, surface)
+				}
+				if !strings.Contains(shell, "[Colors:Selection]\nBackgroundAlternate="+highlight) {
+					t.Errorf("shell colors missing the %s selection %s", accent, highlight)
+				}
+
+				// The application scheme is a separate file for a separate
+				// consumer, and must carry the same pair.
+				app := readFile(t, filepath.Join(
+					theme.TargetPath(theme.Components[0])))
+				if !strings.Contains(app, "BackgroundNormal="+surface) ||
+					!strings.Contains(app, "[Colors:Selection]\nBackgroundAlternate="+highlight) {
+					t.Error("the application scheme disagrees with the shell's copy")
+				}
+
+				// The KDE accent lives in the look-and-feel defaults, and is the
+				// half of the accent that reaches applications.
+				defaults := readFile(t, filepath.Join(
+					theme.TargetPath(theme.Components[3]), "contents", "defaults"))
+				if !strings.Contains(defaults, "AccentColor="+highlight) {
+					t.Errorf("look-and-feel defaults missing AccentColor=%s", highlight)
+				}
+
+				// The window decoration is the only artwork a tint repaints.
+				deco := readFile(t, filepath.Join(
+					theme.TargetPath(theme.Components[2]), "decoration.svg"))
+				if !strings.Contains(deco, hexOf(surface)) {
+					t.Errorf("decoration.svg is not painted in the %s surface", tint)
+				}
+			})
+		}
+	}
+}
+
+// TestSquareSurfacesSurviveTheTransparencySwitches is the interaction the
+// placeholder in an overlay path exists for. The square variant is laid down
+// first; turning a surface opaque then copies that one file again, and it has
+// to come from the square tree. Drawing it from a fixed path would quietly put
+// rounded corners back on exactly the surfaces the user made opaque.
+func TestSquareSurfacesSurviveTheTransparencySwitches(t *testing.T) {
+	rounded := map[string]string{
+		"widgets/panel-background.svg": "transparency-panel",
+		"dialogs/background.svg":       "transparency-popups",
+		"widgets/background.svg":       "transparency-applets",
+	}
+
+	for file, toggle := range rounded {
+		t.Run(toggle, func(t *testing.T) {
+			_, style := installShipped(t, func(ch Choices) {
+				ch.Values["surfaces"] = "square"
+				ch.Toggles[toggle] = false
+			})
+
+			body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+
+			if strings.Contains(body, " C") {
+				t.Errorf("%s kept a curve command after being made opaque", file)
+			}
+			if strings.Contains(body, "fill-opacity") {
+				t.Errorf("%s should be opaque with %s off", file, toggle)
+			}
+		})
+	}
+}
+
+// TestSurfaceShapeReachesEverySurface checks the axis covers what the answer to
+// "what goes square" said it should: not only the panel and popups, but the
+// controls too.
+func TestSurfaceShapeReachesEverySurface(t *testing.T) {
+	for _, shape := range []string{"rounded", "square"} {
+		t.Run(shape, func(t *testing.T) {
+			_, style := installShipped(t, func(ch Choices) {
+				ch.Values["surfaces"] = shape
+			})
+
+			for _, file := range []string{
+				"widgets/panel-background.svg", "dialogs/background.svg",
+				"widgets/background.svg", "widgets/tooltip.svg",
+				"widgets/button.svg", "widgets/lineedit.svg", "widgets/viewitem.svg",
+				"opaque/widgets/panel-background.svg", "solid/dialogs/background.svg",
+			} {
+				body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+
+				// Rounded corners are arcs in the controls and cubics in the
+				// frames; square ones are neither.
+				curved := strings.Contains(body, " C") || strings.Contains(body, " A")
+				if want := shape == "rounded"; curved != want {
+					t.Errorf("%s curved = %v, want %v for %s", file, curved, want, shape)
+				}
+			}
+		})
+	}
+}
+
+// hexOf turns "41,41,41" into "#292929", the form the artwork writes.
+func hexOf(triple string) string {
+	var r, g, b int
+	if _, err := fmt.Sscanf(triple, "%d,%d,%d", &r, &g, &b); err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
 // installShipped installs the real theme into a temporary data directory, with
 // choices starting at the manifest's defaults and adjusted by set. It returns
 // the theme and the installed Plasma style's directory.
@@ -284,22 +419,7 @@ func installShipped(t *testing.T, set func(Choices)) (*Theme, string) {
 // hardcoded hex renders identically today and silently ignores the colors file
 // tomorrow, so the drift is invisible until a variant is added.
 func TestShippedStyleFollowsTheColorScheme(t *testing.T) {
-	t.Setenv("XDG_DATA_HOME", t.TempDir())
-
-	theme, err := LoadManifest("../../assets")
-	if err != nil {
-		t.Fatalf("LoadManifest: %v", err)
-	}
-
-	style := theme.Components[1]
-	if style.ID != "plasma-style" {
-		t.Fatalf("expected plasma-style second, got %q", style.ID)
-	}
-	if err := theme.Install(style, on("transparency")); err != nil {
-		t.Fatalf("install %s: %v", style.ID, err)
-	}
-
-	dst := theme.TargetPath(style)
+	_, dst := installShipped(t, nil)
 
 	// Without this file the Plasma shell falls back to the system scheme, and a
 	// tint would reach applications but not the panel.
@@ -315,7 +435,7 @@ func TestShippedStyleFollowsTheColorScheme(t *testing.T) {
 	defs := regexp.MustCompile(`(?s)<defs>.*?</defs>`)
 
 	found := map[string]bool{}
-	err = filepath.WalkDir(dst, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dst, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".svg" {
 			return err
 		}

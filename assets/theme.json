@@ -11,7 +11,13 @@
       "description": "Window and widget colors",
       "source": "color-schemes/VanillaBoxDark.colors",
       "target": "color-schemes",
-      "default": true
+      "default": true,
+      "resolved": [
+        {
+          "source": "variants/colors/{tint}-{accent}/VanillaBoxDark.colors",
+          "target": ""
+        }
+      ]
     },
     {
       "id": "plasma-style",
@@ -22,13 +28,55 @@
       "default": true,
       "options": [
         {
+          "id": "tint",
+          "name": "Surface colour",
+          "description": "Panels, popups and window backgrounds",
+          "kind": "select",
+          "defaultValue": "neutral",
+          "values": [
+            { "id": "neutral", "name": "Neutral" },
+            { "id": "slate", "name": "Slate" },
+            { "id": "rose", "name": "Rose" }
+          ]
+        },
+        {
+          "id": "accent",
+          "name": "Accent",
+          "description": "Selection, highlights and the active task",
+          "kind": "select",
+          "defaultValue": "sand",
+          "values": [
+            { "id": "sand", "name": "Sand" },
+            { "id": "ash", "name": "Ash" },
+            { "id": "moss", "name": "Moss" },
+            { "id": "steel", "name": "Steel" },
+            { "id": "clay", "name": "Clay" },
+            { "id": "plum", "name": "Plum" }
+          ]
+        },
+        {
+          "id": "surfaces",
+          "name": "Corners",
+          "description": "Panels, popups, buttons and list items",
+          "kind": "select",
+          "defaultValue": "rounded",
+          "values": [
+            { "id": "rounded", "name": "Rounded" },
+            {
+              "id": "square",
+              "name": "Square",
+              "overlay": { "from": "variants/surfaces/square" }
+            }
+          ]
+        },
+        {
           "id": "transparency-panel",
           "name": "Translucent panel",
           "description": "The panel strip",
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "from": "variants/surfaces/{surfaces}/opaque",
             "files": ["widgets/panel-background.svg"]
           }
         },
@@ -39,7 +87,7 @@
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "from": "variants/surfaces/{surfaces}/opaque",
             "files": ["dialogs/background.svg"]
           }
         },
@@ -50,9 +98,15 @@
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "from": "variants/surfaces/{surfaces}/opaque",
             "files": ["widgets/background.svg"]
           }
+        }
+      ],
+      "resolved": [
+        {
+          "source": "variants/colors/{tint}-{accent}/colors",
+          "target": "colors"
         }
       ]
     },
@@ -62,7 +116,13 @@
       "description": "Titlebar and window buttons",
       "source": "aurorae/themes/VanillaBoxDark",
       "target": "aurorae/themes",
-      "default": true
+      "default": true,
+      "resolved": [
+        {
+          "source": "variants/decoration/{tint}/decoration.svg",
+          "target": "decoration.svg"
+        }
+      ]
     },
     {
       "id": "global-theme",
@@ -70,7 +130,13 @@
       "description": "The whole look as one entry in System Settings",
       "source": "plasma/look-and-feel/org.vanillabox.dark",
       "target": "plasma/look-and-feel",
-      "default": true
+      "default": true,
+      "resolved": [
+        {
+          "source": "variants/defaults/{accent}/defaults",
+          "target": "contents/defaults"
+        }
+      ]
     }
   ]
 }

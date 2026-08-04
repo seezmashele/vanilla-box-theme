@@ -23,6 +23,9 @@ func testTheme(t *testing.T) *theme.Theme {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
 	writeFile(t, filepath.Join(assets, "colors.colors"), "[General]\n")
+	for _, tint := range []string{"neutral", "slate", "rose"} {
+		writeFile(t, filepath.Join(assets, "variants", tint, "c.colors"), "["+tint+"]\n")
+	}
 	writeFile(t, filepath.Join(assets, "style", "widgets", "panel.svg"), "translucent\n")
 	writeFile(t, filepath.Join(assets, "style", "opaque", "widgets", "panel.svg"), "opaque\n")
 
@@ -35,6 +38,9 @@ func testTheme(t *testing.T) *theme.Theme {
 			{
 				ID: "colors", Name: "Color scheme", Source: "colors.colors",
 				Target: "color-schemes", Default: true, Available: true,
+				// Declares no options of its own, but reads the tint declared on
+				// the Plasma style.
+				Resolved: []theme.Resolved{{Source: "variants/{tint}/c.colors", Target: ""}},
 			},
 			{
 				ID: "style", Name: "Plasma style", Source: "style",
@@ -114,6 +120,24 @@ func keyPress(k string) tea.KeyPressMsg {
 	panic("unhandled key " + k)
 }
 
+// optionAt puts the cursor on the named preference, so tests do not depend on
+// the order visibleOptions happens to produce.
+func optionAt(t *testing.T, m Model, id string) Model {
+	t.Helper()
+
+	for i, o := range m.visibleOptions() {
+		if o.ID == id {
+			m.optionCursor = i
+
+			return m
+		}
+	}
+
+	t.Fatalf("no %q among the visible options", id)
+
+	return m
+}
+
 func TestSelectScreenStartsOnDefaults(t *testing.T) {
 	m := New(testTheme(t))
 
@@ -183,6 +207,7 @@ func TestOptionsScreenStartsOnDefaults(t *testing.T) {
 		t.Error("options view should list the option")
 	}
 
+	m = optionAt(t, m, "transparency")
 	m, _ = send(m, " ")
 	if m.choices.Toggles["transparency"] {
 		t.Error("space should turn the option off")
@@ -195,7 +220,7 @@ func TestSelectCyclesThroughItsValues(t *testing.T) {
 	m := New(testTheme(t))
 
 	m, _ = send(m, "enter")
-	m.optionCursor = 1 // the select
+	m = optionAt(t, m, "tint")
 
 	if got := m.choices.Values["tint"]; got != "neutral" {
 		t.Fatalf("tint = %q, want the declared default", got)
@@ -218,6 +243,30 @@ func TestSelectCyclesThroughItsValues(t *testing.T) {
 	}
 }
 
+// TestPreferenceFollowsTheComponentThatReadsIt covers a preference declared on
+// one component and consumed by another. The colour scheme reads the tint
+// through a resolved path without declaring it, so deselecting the Plasma style
+// must not take the tint off screen while something still uses it.
+func TestPreferenceFollowsTheComponentThatReadsIt(t *testing.T) {
+	m := New(testTheme(t))
+
+	m.cursor = 1 // the Plasma style, which declares tint and transparency
+	m, _ = send(m, " ", "enter")
+
+	if m.screen != screenOptions {
+		t.Fatalf("screen = %v, want the preferences to still be shown", m.screen)
+	}
+
+	var ids []string
+	for _, o := range m.visibleOptions() {
+		ids = append(ids, o.ID)
+	}
+
+	if len(ids) != 1 || ids[0] != "tint" {
+		t.Errorf("visible options = %v, want just the tint the colour scheme reads", ids)
+	}
+}
+
 // TestSidewaysKeysHiddenWithoutASelect keeps the help line honest: the arrows
 // only do something where a row has more than two states.
 func TestSidewaysKeysHiddenWithoutASelect(t *testing.T) {
@@ -236,7 +285,10 @@ func TestSidewaysKeysHiddenWithoutASelect(t *testing.T) {
 // that has preferences: there is nothing to ask about, so the step is skipped
 // rather than shown empty.
 func TestOptionsScreenSkippedWithoutOptions(t *testing.T) {
-	m := New(testTheme(t))
+	th := testTheme(t)
+	th.Components[0].Resolved = nil // and it reads no preference either
+
+	m := New(th)
 
 	m.cursor = 1 // the optioned component
 	m, _ = send(m, " ", "enter")
@@ -255,7 +307,9 @@ func TestOptionsScreenSkippedWithoutOptions(t *testing.T) {
 func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter", " ", "enter")
+	m, _ = send(m, "enter")
+	m = optionAt(t, m, "transparency")
+	m, _ = send(m, " ", "enter")
 
 	if m.screen != screenConfirm {
 		t.Fatalf("screen = %v, want screenConfirm", m.screen)

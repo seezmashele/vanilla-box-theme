@@ -27,7 +27,7 @@ type colorSet struct {
 // name in the other.
 type scheme struct {
 	palette map[string]string
-	accent  map[string]string
+	accent  string
 	status  map[string]string
 
 	SchemeKey string
@@ -35,7 +35,8 @@ type scheme struct {
 }
 
 func (s scheme) render() string {
-	p, a, st := s.palette, s.accent, s.status
+	p, st := s.palette, s.status
+	a := map[string]string{"highlight": s.accent}
 
 	sets := []colorSet{
 		{Name: "Button", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["elevated"], DecorationFocus: p["elevated"]},

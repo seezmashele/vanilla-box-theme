@@ -18,9 +18,10 @@ import (
 )
 
 type tokens struct {
-	Palettes map[string]map[string]string `json:"palettes"`
-	Accents  map[string]map[string]string `json:"accents"`
-	Status   map[string]string            `json:"status"`
+	Foreground map[string]string            `json:"foreground"`
+	Palettes   map[string]map[string]string `json:"palettes"`
+	Accents    map[string]string            `json:"accents"`
+	Status     map[string]string            `json:"status"`
 
 	SurfaceShape    map[string]map[string]float64 `json:"surfaceShape"`
 	DecorationShape map[string]map[string]float64 `json:"decorationShape"`
@@ -56,8 +57,15 @@ const (
 	schemeDir  = "assets/color-schemes"
 	auroraeDir = "assets/aurorae/themes/VanillaBoxDark"
 	lookFeel   = "assets/plasma/look-and-feel/org.vanillabox.dark"
+	variantDir = "assets/variants"
+
+	// The theme as shipped. Every other point in the variant space is written
+	// under variants/ and copied over an install by the option that names it.
+	defaultTint   = "neutral"
+	defaultAccent = "sand"
 
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
+	titleHeight = 30
 	titleBorder = 1
 )
 
@@ -77,7 +85,7 @@ func run(root string) error {
 		return err
 	}
 
-	files, err := build(tk, "neutral", "sand", "rounded", "rounded", "windows")
+	files, err := allFiles(tk)
 	if err != nil {
 		return err
 	}
@@ -95,22 +103,201 @@ func run(root string) error {
 	return nil
 }
 
-// build returns every generated file for one point in the variant space, keyed
-// by repository-relative slash path.
-func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[string]string, error) {
-	palette, ok := tk.Palettes[tint]
+// palette merges the tint's surfaces with the foregrounds every tint shares.
+func (tk *tokens) palette(tint string) (map[string]string, error) {
+	surfaces, ok := tk.Palettes[tint]
 	if !ok {
 		return nil, fmt.Errorf("no palette %q", tint)
 	}
-	acc, ok := tk.Accents[accent]
-	if !ok {
-		return nil, fmt.Errorf("no accent %q", accent)
+
+	merged := make(map[string]string, len(surfaces)+len(tk.Foreground))
+	for k, v := range surfaces {
+		merged[k] = v
+	}
+	for k, v := range tk.Foreground {
+		merged[k] = v
+	}
+
+	return merged, nil
+}
+
+// allFiles is everything the generator writes: the theme as shipped, plus the
+// variant trees the installer picks from.
+func allFiles(tk *tokens) (map[string]string, error) {
+	out, err := build(tk, defaultTint, defaultAccent, "rounded", "rounded", "windows")
+	if err != nil {
+		return nil, err
+	}
+
+	extra, err := variants(tk)
+	if err != nil {
+		return nil, err
+	}
+	for path, content := range extra {
+		out[path] = content
+	}
+
+	return out, nil
+}
+
+// variants writes one file per point in each axis that a component resolves at
+// install time. The colours are a product of tint and accent because the shell
+// reads the theme's own colors file rather than resolving the KDE accent
+// through kdeglobals — baking it is correct either way, and costs only ini.
+func variants(tk *tokens) (map[string]string, error) {
+	out := map[string]string{}
+
+	for tint := range tk.Palettes {
+		for accent := range tk.Accents {
+			app, shell, err := schemes(tk, tint, accent)
+			if err != nil {
+				return nil, err
+			}
+
+			dir := variantDir + "/colors/" + tint + "-" + accent
+			out[dir+"/VanillaBoxDark.colors"] = app
+			out[dir+"/colors"] = shell
+		}
+
+		// The window decoration is the only artwork that paints a palette colour
+		// rather than deferring to the scheme, so it is the only thing a tint
+		// generates beyond ini files.
+		deco, err := tk.decoration(tint, "rounded")
+		if err != nil {
+			return nil, err
+		}
+		out[variantDir+"/decoration/"+tint+"/decoration.svg"] = deco
+	}
+
+	for accent, hex := range tk.Accents {
+		out[variantDir+"/defaults/"+accent+"/defaults"] = lookAndFeelDefaults(hex, "", "")
+	}
+
+	// Both surface shapes are written, the shipped one included. The transparency
+	// switches draw their opaque copies out of whichever shape is chosen, so the
+	// rounded tree has to exist as a variant and not only as the base.
+	for shape := range tk.SurfaceShape {
+		files, err := surfaces(tk, defaultTint, defaultAccent, shape)
+		if err != nil {
+			return nil, err
+		}
+		for path, content := range files {
+			out[variantDir+"/surfaces/"+shape+"/"+path] = content
+		}
+	}
+
+	return out, nil
+}
+
+// surfaces renders the artwork a corner radius reaches: the panel and popup
+// frames across all three prefixes, and the stacked control states.
+//
+// Colours here are only the stylesheet fallbacks an editor shows, so the tint
+// makes no difference to the bytes and the default one is used throughout.
+func surfaces(tk *tokens, tint, accent, shape string) (map[string]string, error) {
+	palette, err := tk.palette(tint)
+	if err != nil {
+		return nil, err
 	}
 	radii, ok := tk.SurfaceShape[shape]
 	if !ok {
 		return nil, fmt.Errorf("no surface shape %q", shape)
 	}
 
+	out := map[string]string{}
+	for _, prefix := range []string{"", "opaque/", "solid/"} {
+		for path, content := range frames(tk, palette, radii, prefix == "") {
+			out[prefix+path] = content
+		}
+	}
+
+	for path, c := range controls(palette, tk.Accents[accent], tk.Status, radii["button"]) {
+		out["widgets/"+path] = c.render()
+	}
+
+	return out, nil
+}
+
+// frames renders the four background surfaces at one radius. translucent picks
+// the theme root's opacities; the opaque/ and solid/ prefixes Plasma falls back
+// to when compositing is off never carry any.
+func frames(tk *tokens, palette map[string]string, radii map[string]float64, translucent bool) map[string]string {
+	popup := frame{
+		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
+		Fallback: palette["background"], Mask: true, HintSize: 8, HintY: 48,
+	}
+	tooltip := frame{
+		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
+		Fallback: palette["elevated"], Mask: true, HintSize: 4, HintY: 48,
+	}
+	panel := frame{
+		Size: 40, Canvas: 56, Tile: 8, Radius: radii["panel"],
+		Fallback: palette["background"], HintSize: 2, HintY: 44, Inline: true,
+	}
+
+	if translucent {
+		popup.Opacity = opacity(tk.Opacity["popup"])
+		tooltip.Opacity = opacity(tk.Opacity["tooltip"])
+		panel.Opacity = opacity(tk.Opacity["panel"])
+	}
+
+	return map[string]string{
+		"widgets/background.svg":       popup.render(),
+		"dialogs/background.svg":       popup.render(),
+		"widgets/tooltip.svg":          tooltip.render(),
+		"widgets/panel-background.svg": panel.render(),
+	}
+}
+
+// schemes renders the application colour scheme and the Plasma style's copy for
+// one tint and accent. They differ only in how they name themselves.
+func schemes(tk *tokens, tint, accent string) (app, shell string, err error) {
+	palette, err := tk.palette(tint)
+	if err != nil {
+		return "", "", err
+	}
+	hex, ok := tk.Accents[accent]
+	if !ok {
+		return "", "", fmt.Errorf("no accent %q", accent)
+	}
+
+	base := scheme{palette: palette, accent: hex, status: tk.Status, Name: "Vanilla Box Dark"}
+
+	a, s := base, base
+	a.SchemeKey = "VanillaBoxDark"
+	s.SchemeKey = "Vanilla Box Dark"
+
+	return a.render(), s.render(), nil
+}
+
+// decoration renders the window frame for one tint and decoration shape.
+func (tk *tokens) decoration(tint, decoShape string) (string, error) {
+	palette, err := tk.palette(tint)
+	if err != nil {
+		return "", err
+	}
+	deco, ok := tk.DecorationShape[decoShape]
+	if !ok {
+		return "", fmt.Errorf("no decoration shape %q", decoShape)
+	}
+
+	return decoration{
+		Width: 40, TitleH: titleHeight + titleBorder, BodyH: 24, Step: 60,
+		Radius: deco["titlebar"], Border: palette["elevatedAlt"], Backgnd: palette["background"],
+	}.render(), nil
+}
+
+// build returns every generated file for one point in the variant space, keyed
+// by repository-relative slash path.
+func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[string]string, error) {
+	palette, err := tk.palette(tint)
+	if err != nil {
+		return nil, err
+	}
+	acc, ok := tk.Accents[accent]
+	if !ok {
+		return nil, fmt.Errorf("no accent %q", accent)
+	}
 	out := map[string]string{}
 
 	// The application scheme names itself by id; the Plasma style's copy names
@@ -125,55 +312,27 @@ func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[stri
 	shell.SchemeKey = "Vanilla Box Dark"
 	out[style+"/colors"] = shell.render()
 
-	popup := frame{
-		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
-		Fallback: palette["background"], Mask: true, HintSize: 8, HintY: 48,
-	}
-	tooltip := frame{
-		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
-		Fallback: palette["elevated"], Mask: true, HintSize: 4, HintY: 48,
-	}
-	panel := frame{
-		Size: 40, Canvas: 56, Tile: 8, Radius: radii["panel"],
-		Fallback: palette["background"], HintSize: 2, HintY: 44, Inline: true,
-	}
-
 	// The theme root carries the translucent artwork. Plasma falls back to the
 	// opaque/ and solid/ prefixes itself when compositing is off, so both ship
 	// whatever the transparency options are set to.
-	for _, prefix := range []string{"", "opaque/", "solid/"} {
-		p, t, pan := popup, tooltip, panel
-		if prefix == "" {
-			p.Opacity = opacity(tk.Opacity["popup"])
-			t.Opacity = opacity(tk.Opacity["tooltip"])
-			pan.Opacity = opacity(tk.Opacity["panel"])
-		}
-
-		out[style+"/"+prefix+"widgets/background.svg"] = p.render()
-		out[style+"/"+prefix+"dialogs/background.svg"] = p.render()
-		out[style+"/"+prefix+"widgets/tooltip.svg"] = t.render()
-		out[style+"/"+prefix+"widgets/panel-background.svg"] = pan.render()
+	surf, err := surfaces(tk, tint, accent, shape)
+	if err != nil {
+		return nil, err
+	}
+	for path, content := range surf {
+		out[style+"/"+path] = content
 	}
 
-	for path, c := range controls(palette, acc, tk.Status, radii["button"]) {
-		out[style+"/widgets/"+path] = c.render()
-	}
-
-	deco, ok := tk.DecorationShape[decoShape]
-	if !ok {
-		return nil, fmt.Errorf("no decoration shape %q", decoShape)
-	}
 	bs, ok := tk.ButtonStyles[buttons]
 	if !ok {
 		return nil, fmt.Errorf("no button style %q", buttons)
 	}
 
-	titleHeight := 30
-
-	out[auroraeDir+"/decoration.svg"] = decoration{
-		Width: 40, TitleH: titleHeight + titleBorder, BodyH: 24, Step: 60,
-		Radius: deco["titlebar"], Border: palette["elevatedAlt"], Backgnd: palette["background"],
-	}.render()
+	deco, err := tk.decoration(tint, decoShape)
+	if err != nil {
+		return nil, err
+	}
+	out[auroraeDir+"/decoration.svg"] = deco
 
 	plain := button{
 		PlateFill: palette["text"], HoverOpacity: bs.PlainHover, PressedOpacity: bs.PlainPressed,
@@ -205,11 +364,11 @@ func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[stri
 
 // controls builds the widget artwork that shares the stacked nine-tile idiom:
 // buttons, text fields and list items.
-func controls(palette, acc, status map[string]string, radius float64) map[string]control {
+func controls(palette map[string]string, accent string, status map[string]string, radius float64) map[string]control {
 	sheet := fmt.Sprintf(
 		".ColorScheme-Text { color:%s; }.ColorScheme-Highlight { color:%s; }"+
 			".ColorScheme-ButtonBackground { color:%s; }.ColorScheme-ButtonHover { color:%s; }",
-		palette["text"], acc["highlight"], palette["elevated"], status["hover"])
+		palette["text"], accent, palette["elevated"], status["hover"])
 
 	const (
 		text    = "ColorScheme-Text"

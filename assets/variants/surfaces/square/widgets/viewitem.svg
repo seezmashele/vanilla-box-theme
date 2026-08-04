@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="140">
+<defs><style type="text/css" id="current-color-scheme">.ColorScheme-Text { color:#e8e4dd; }.ColorScheme-Highlight { color:#ae8e6c; }.ColorScheme-ButtonBackground { color:#2f2f2f; }.ColorScheme-ButtonHover { color:#9e9e9e; }</style></defs>
+<rect id="normal-topleft" x="0" y="0" width="3" height="3" style="fill:none"/>
+<rect id="normal-top" x="3" y="0" width="18" height="3" style="fill:none"/>
+<rect id="normal-topright" x="21" y="0" width="3" height="3" style="fill:none"/>
+<rect id="normal-left" x="0" y="3" width="3" height="18" style="fill:none"/>
+<rect id="normal-center" x="3" y="3" width="18" height="18" style="fill:none"/>
+<rect id="normal-right" x="21" y="3" width="3" height="18" style="fill:none"/>
+<rect id="normal-bottomleft" x="0" y="21" width="3" height="3" style="fill:none"/>
+<rect id="normal-bottom" x="3" y="21" width="18" height="3" style="fill:none"/>
+<rect id="normal-bottomright" x="21" y="21" width="3" height="3" style="fill:none"/>
+<g id="hover-topleft"><rect x="0" y="28" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-top"><rect x="6" y="28" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-topright"><rect x="18" y="28" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-left"><rect x="0" y="34" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-center"><rect x="6" y="34" width="12" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-right"><rect x="18" y="34" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-bottomleft"><rect x="0" y="46" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-bottom"><rect x="6" y="46" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="hover-bottomright"><rect x="18" y="46" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-topleft"><rect x="0" y="56" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-top"><rect x="6" y="56" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-topright"><rect x="18" y="56" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-left"><rect x="0" y="62" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-center"><rect x="6" y="62" width="12" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-right"><rect x="18" y="62" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-bottomleft"><rect x="0" y="74" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-bottom"><rect x="6" y="74" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected-bottomright"><rect x="18" y="74" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-topleft"><rect x="0" y="84" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-top"><rect x="6" y="84" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-topright"><rect x="18" y="84" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-left"><rect x="0" y="90" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-center"><rect x="6" y="90" width="12" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-right"><rect x="18" y="90" width="6" height="12" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-bottomleft"><rect x="0" y="102" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-bottom"><rect x="6" y="102" width="12" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="selected+hover-bottomright"><rect x="18" y="102" width="6" height="6" class="ColorScheme-Highlight" style="fill:currentColor" opacity="0.25"/></g>
+<g id="focus-topleft"><rect x="0" y="112" width="6" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-top"><rect x="6" y="112" width="12" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-topright"><rect x="18" y="112" width="6" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-left"><rect x="0" y="118" width="6" height="12" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-center"><rect x="6" y="118" width="12" height="12" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-right"><rect x="18" y="118" width="6" height="12" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-bottomleft"><rect x="0" y="130" width="6" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-bottom"><rect x="6" y="130" width="12" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+<g id="focus-bottomright"><rect x="18" y="130" width="6" height="6" class="ColorScheme-Text" style="fill:currentColor" opacity="0.08"/></g>
+</svg>

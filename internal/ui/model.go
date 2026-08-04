@@ -260,14 +260,47 @@ func (m Model) beforeConfirm() screen {
 	return screenOptions
 }
 
-// visibleOptions are the options belonging to components that are actually
-// going to be installed. Deselecting a component hides its preferences rather
-// than leaving them on screen doing nothing.
+// visibleOptions are the preferences the current selection actually uses.
+// Deselecting a component hides its preferences rather than leaving them on
+// screen doing nothing.
+//
+// A component uses a preference either by declaring it or by naming it in a
+// resolved path. The second case is what lets a theme-wide choice like the tint
+// be declared once and still be offered whenever anything that reads it is
+// being installed — without repeating its values on every component.
 func (m Model) visibleOptions() []theme.Option {
-	var options []theme.Option
+	declared := map[string]theme.Option{}
 	for _, it := range m.items {
-		if it.selected {
-			options = append(options, it.component.Options...)
+		for _, o := range it.component.Options {
+			declared[o.ID] = o
+		}
+	}
+
+	var options []theme.Option
+	seen := map[string]bool{}
+
+	add := func(id string) {
+		o, ok := declared[id]
+		if !ok || seen[id] {
+			return
+		}
+
+		seen[id] = true
+		options = append(options, o)
+	}
+
+	for _, it := range m.items {
+		if !it.selected {
+			continue
+		}
+
+		for _, o := range it.component.Options {
+			add(o.ID)
+		}
+		for _, r := range it.component.Resolved {
+			for _, id := range theme.Placeholders(r.Source) {
+				add(id)
+			}
 		}
 	}
 
