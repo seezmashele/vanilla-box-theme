@@ -62,7 +62,7 @@ type Model struct {
 	// choices is the state of every option in the theme, keyed by Option.ID.
 	// It is keyed across all components rather than per component so it can be
 	// handed to Install as-is.
-	choices map[string]bool
+	choices theme.Choices
 
 	screen       screen
 	cursor       int
@@ -85,16 +85,12 @@ type Model struct {
 // New builds the installer UI for a loaded theme.
 func New(t *theme.Theme) Model {
 	items := make([]item, len(t.Components))
-	choices := make(map[string]bool)
+	choices := t.DefaultChoices()
 
 	for i, c := range t.Components {
 		items[i] = item{
 			component: c,
 			selected:  c.Default && c.Available,
-		}
-
-		for _, o := range c.Options {
-			choices[o.ID] = o.Default
 		}
 	}
 
@@ -278,6 +274,18 @@ func (m Model) visibleOptions() []theme.Option {
 	return options
 }
 
+// hasSelect reports whether any option on the preferences screen is a choice
+// among values rather than a switch.
+func (m Model) hasSelect() bool {
+	for _, o := range m.visibleOptions() {
+		if o.Kind == theme.KindSelect {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	options := m.visibleOptions()
 
@@ -293,10 +301,13 @@ func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.keys.Toggle):
-		if m.optionCursor < len(options) {
-			id := options[m.optionCursor].ID
-			m.choices[id] = !m.choices[id]
-		}
+		m.changeOption(options, 1)
+
+	case key.Matches(msg, m.keys.Next):
+		m.changeOption(options, 1)
+
+	case key.Matches(msg, m.keys.Prev):
+		m.changeOption(options, -1)
 
 	case key.Matches(msg, m.keys.Back):
 		m.screen = screenSelect
@@ -308,6 +319,32 @@ func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// changeOption moves the option under the cursor by delta. A toggle has two
+// states and flips whichever way it is nudged; a select steps through its
+// values and wraps, so the same keys work on both kinds of row.
+func (m *Model) changeOption(options []theme.Option, delta int) {
+	if m.optionCursor >= len(options) {
+		return
+	}
+
+	o := options[m.optionCursor]
+	if o.Kind != theme.KindSelect {
+		m.choices.Toggles[o.ID] = !m.choices.Toggles[o.ID]
+
+		return
+	}
+
+	at := 0
+	for i, v := range o.Values {
+		if v.ID == m.choices.Values[o.ID] {
+			at = i
+		}
+	}
+
+	next := (at + delta + len(o.Values)) % len(o.Values)
+	m.choices.Values[o.ID] = o.Values[next].ID
 }
 
 func (m Model) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -434,6 +471,12 @@ func (m *Model) updateBindings() {
 	m.keys.Up.SetEnabled(selecting || choosing)
 	m.keys.Down.SetEnabled(selecting || choosing)
 	m.keys.Toggle.SetEnabled(selecting || choosing)
+
+	// The sideways keys only mean anything where a row has more than two
+	// states, so they stay out of the help line unless a select is on screen.
+	m.keys.Prev.SetEnabled(choosing && m.hasSelect())
+	m.keys.Next.SetEnabled(choosing && m.hasSelect())
+
 	m.keys.All.SetEnabled(selecting)
 	m.keys.None.SetEnabled(selecting)
 	m.keys.Confirm.SetEnabled((selecting && hasSelection) || choosing)

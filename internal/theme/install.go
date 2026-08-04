@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 // BackupDir is where a replaced install is kept, relative to the user's data
@@ -18,9 +19,10 @@ const BackupDir = "vanillabox/backups"
 // It does not apply anything. Once the files are in place the theme appears in
 // System Settings, and it is the user who chooses it there.
 //
-// choices holds the state of every option, keyed by Option.ID. An option that
-// is off has its overlay copied over the files already written.
-func (t *Theme) Install(c Component, choices map[string]bool) error {
+// choices holds the state of every option, keyed by Option.ID. A toggle that is
+// off, and a select value that names one, have their overlay copied over the
+// files already written.
+func (t *Theme) Install(c Component, choices Choices) error {
 	src := t.SourcePath(c)
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("read %s: %w", c.Source, err)
@@ -38,31 +40,123 @@ func (t *Theme) Install(c Component, choices map[string]bool) error {
 		return fmt.Errorf("copy %s: %w", c.Name, err)
 	}
 
-	return overlayOptions(c, dst, choices)
+	if err := t.overlayOptions(c, dst, choices); err != nil {
+		return err
+	}
+
+	return t.writeResolved(c, dst, choices)
 }
 
-// overlayOptions applies the overlay of every option that is switched off. An
-// option that is on needs nothing done: the files as shipped are already what
-// it describes.
-func overlayOptions(c Component, dst string, choices map[string]bool) error {
+// overlayOptions lays down the overlay each option asks for. A toggle that is
+// on, and a select value with no overlay, need nothing done: the files as
+// generated are already what they describe.
+func (t *Theme) overlayOptions(c Component, dst string, choices Choices) error {
 	for _, o := range c.Options {
-		if choices[o.ID] {
-			continue
+		overlay := Overlay{}
+
+		switch o.Kind {
+		case KindSelect:
+			for _, v := range o.Values {
+				if v.ID == choices.Values[o.ID] {
+					overlay = v.Overlay
+				}
+			}
+		default:
+			if !choices.Toggles[o.ID] {
+				overlay = o.OverlayWhenOff
+			}
 		}
 
-		// The overlay lives inside what was just installed, and holds no
-		// directory of its own name, so copying it over its own parent cannot
-		// recurse.
-		overlay := filepath.Join(dst, o.OverlayWhenOff)
-		if _, err := os.Stat(overlay); err != nil {
-			return fmt.Errorf("%s: no %q overlay in %s: %w", o.Name, o.OverlayWhenOff, c.Source, err)
+		if overlay.Empty() {
+			continue
 		}
-		if err := copyTree(overlay, dst); err != nil {
+		if err := t.applyOverlay(overlay, dst); err != nil {
 			return fmt.Errorf("%s: %w", o.Name, err)
 		}
 	}
 
 	return nil
+}
+
+// applyOverlay copies an overlay's files over an install. Naming no files means
+// the whole tree, which is how a variant that replaces everything is written.
+func (t *Theme) applyOverlay(o Overlay, dst string) error {
+	root := filepath.Join(t.AssetDir, filepath.FromSlash(o.From))
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("no %q overlay: %w", o.From, err)
+	}
+
+	if len(o.Files) == 0 {
+		return copyTree(root, dst)
+	}
+
+	for _, name := range o.Files {
+		rel := filepath.FromSlash(name)
+
+		src := filepath.Join(root, rel)
+		if _, err := os.Stat(src); err != nil {
+			return fmt.Errorf("%s has no %s: %w", o.From, name, err)
+		}
+		if err := copyTree(src, filepath.Join(dst, rel)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// writeResolved copies the files whose content depends on a combination of
+// options, substituting the chosen values into the source path.
+func (t *Theme) writeResolved(c Component, dst string, choices Choices) error {
+	for _, r := range c.Resolved {
+		source, err := choices.expand(r.Source)
+		if err != nil {
+			return fmt.Errorf("%s: %w", c.Name, err)
+		}
+
+		src := filepath.Join(t.AssetDir, filepath.FromSlash(source))
+		if _, err := os.Stat(src); err != nil {
+			return fmt.Errorf("%s: no %s: %w", c.Name, source, err)
+		}
+		if err := copyTree(src, filepath.Join(dst, filepath.FromSlash(r.Target))); err != nil {
+			return fmt.Errorf("%s: %w", c.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// expand replaces every {option-id} in path with the chosen value. An unknown
+// id is an error rather than an empty string: silently resolving to a path that
+// does not exist would be reported as a missing file, one step too late to say
+// which option was at fault.
+func (ch Choices) expand(path string) (string, error) {
+	var b strings.Builder
+
+	for {
+		open := strings.IndexByte(path, '{')
+		if open < 0 {
+			b.WriteString(path)
+
+			return b.String(), nil
+		}
+
+		end := strings.IndexByte(path[open:], '}')
+		if end < 0 {
+			return "", fmt.Errorf("unclosed placeholder in %q", path)
+		}
+		end += open
+
+		id := path[open+1 : end]
+		value, ok := ch.Values[id]
+		if !ok {
+			return "", fmt.Errorf("no option %q to fill %q", id, path)
+		}
+
+		b.WriteString(path[:open])
+		b.WriteString(value)
+		path = path[end+1:]
+	}
 }
 
 // backup moves an existing install out of the way. Nothing there is not an

@@ -35,6 +35,11 @@ type Component struct {
 	// preferences screen can show only what the current selection affects.
 	Options []Option `json:"options"`
 
+	// Resolved are files chosen by a combination of options rather than laid
+	// down by a single overlay. They hang off the component so they are written
+	// only when it is installed.
+	Resolved []Resolved `json:"resolved"`
+
 	// Default reports whether the component starts out selected.
 	Default bool `json:"default"`
 
@@ -43,23 +48,99 @@ type Component struct {
 	Available bool `json:"-"`
 }
 
-// Option is a user preference that changes what is written for a component.
+// OptionKind is how an option is chosen: a switch with two states, or a choice
+// among named values.
+type OptionKind string
+
+const (
+	KindToggle OptionKind = "toggle"
+	KindSelect OptionKind = "select"
+)
+
+// Overlay is artwork copied over an install to change what was written. From is
+// a directory relative to the asset directory; Files names paths inside it, and
+// an empty Files means the whole directory.
 //
-// The theme ships its own variants as directories inside the component, so an
-// option does not edit any file: switching one off copies a directory over the
-// files already installed. That keeps the artwork the only place the theme's
-// looks are defined.
-type Option struct {
+// Naming files rather than always copying a directory is what lets several
+// options draw on one overlay tree without needing a directory per combination:
+// four independent transparency switches would otherwise want sixteen.
+type Overlay struct {
+	From  string   `json:"from"`
+	Files []string `json:"files"`
+}
+
+// Empty reports whether the overlay would copy nothing.
+func (o Overlay) Empty() bool { return o.From == "" }
+
+// OptionValue is one choice of a select.
+type OptionValue struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	// Default reports whether the option starts out on.
+	// Overlay is laid over the install when this value is chosen. The value that
+	// matches the artwork as generated leaves it empty and copies nothing.
+	Overlay Overlay `json:"overlay"`
+}
+
+// Option is a user preference that changes what is written for a component.
+//
+// An option never edits a file. It only decides which already-written bytes get
+// copied over the install, which keeps the artwork the only place the theme's
+// looks are defined.
+type Option struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Kind        OptionKind `json:"kind"`
+
+	// Default is a toggle's starting state.
 	Default bool `json:"default"`
 
-	// OverlayWhenOff is a directory inside the component's source, copied over
-	// the installed files when the option is switched off.
-	OverlayWhenOff string `json:"overlayWhenOff"`
+	// OverlayWhenOff is laid over the install when a toggle is switched off.
+	OverlayWhenOff Overlay `json:"overlayWhenOff"`
+
+	// Values and DefaultValue belong to a select.
+	Values       []OptionValue `json:"values"`
+	DefaultValue string        `json:"defaultValue"`
+}
+
+// Resolved is a file whose content depends on more than one option, and so
+// cannot be expressed as overlays without the order they are laid in mattering.
+// Source is relative to the asset directory and may contain {option-id}
+// placeholders; Target is relative to the component's installed directory.
+type Resolved struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// Choices is what the user picked, keyed by Option.ID.
+type Choices struct {
+	Toggles map[string]bool
+	Values  map[string]string
+}
+
+// NewChoices returns an empty set of choices.
+func NewChoices() Choices {
+	return Choices{Toggles: map[string]bool{}, Values: map[string]string{}}
+}
+
+// DefaultChoices is every option in the theme at its declared default.
+func (t *Theme) DefaultChoices() Choices {
+	ch := NewChoices()
+
+	for _, c := range t.Components {
+		for _, o := range c.Options {
+			switch o.Kind {
+			case KindSelect:
+				ch.Values[o.ID] = o.DefaultValue
+			default:
+				ch.Toggles[o.ID] = o.Default
+			}
+		}
+	}
+
+	return ch
 }
 
 // Theme is a whole theme: its identity plus the components it ships.
@@ -147,10 +228,48 @@ func validateOptions(c Component) error {
 			return fmt.Errorf("component %q: duplicate option id %q", c.ID, o.ID)
 		case o.Name == "":
 			return fmt.Errorf("component %q: option %q has no name", c.ID, o.ID)
-		case o.OverlayWhenOff == "":
-			return fmt.Errorf("component %q: option %q does nothing when off", c.ID, o.ID)
 		}
 		seen[o.ID] = true
+
+		if err := validateOption(c, o); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateOption(c Component, o Option) error {
+	if o.Kind == KindSelect {
+		if len(o.Values) < 2 {
+			return fmt.Errorf("component %q: select %q needs at least two values", c.ID, o.ID)
+		}
+
+		values := make(map[string]bool, len(o.Values))
+		for _, v := range o.Values {
+			switch {
+			case v.ID == "":
+				return fmt.Errorf("component %q: select %q has a value with no id", c.ID, o.ID)
+			case values[v.ID]:
+				return fmt.Errorf("component %q: select %q has duplicate value %q", c.ID, o.ID, v.ID)
+			case v.Name == "":
+				return fmt.Errorf("component %q: select %q value %q has no name", c.ID, o.ID, v.ID)
+			}
+			values[v.ID] = true
+		}
+
+		if !values[o.DefaultValue] {
+			return fmt.Errorf("component %q: select %q defaults to unknown value %q",
+				c.ID, o.ID, o.DefaultValue)
+		}
+
+		return nil
+	}
+
+	// A toggle that overlays nothing when off is a switch the user can move
+	// without changing the install.
+	if o.OverlayWhenOff.Empty() {
+		return fmt.Errorf("component %q: option %q does nothing when off", c.ID, o.ID)
 	}
 
 	return nil

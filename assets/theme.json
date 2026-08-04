@@ -22,11 +22,37 @@
       "default": true,
       "options": [
         {
-          "id": "transparency",
-          "name": "Transparency",
-          "description": "Translucent panel, popups and dialogs",
+          "id": "transparency-panel",
+          "name": "Translucent panel",
+          "description": "The panel strip",
+          "kind": "toggle",
           "default": true,
-          "overlayWhenOff": "opaque"
+          "overlayWhenOff": {
+            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "files": ["widgets/panel-background.svg"]
+          }
+        },
+        {
+          "id": "transparency-popups",
+          "name": "Translucent popups & menus",
+          "description": "Launcher and system tray popups",
+          "kind": "toggle",
+          "default": true,
+          "overlayWhenOff": {
+            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "files": ["dialogs/background.svg"]
+          }
+        },
+        {
+          "id": "transparency-applets",
+          "name": "Translucent applets",
+          "description": "Plasmoid content areas",
+          "kind": "toggle",
+          "default": true,
+          "overlayWhenOff": {
+            "from": "plasma/desktoptheme/vanilla-box-dark/opaque",
+            "files": ["widgets/background.svg"]
+          }
         }
       ]
     },

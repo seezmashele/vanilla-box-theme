@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"vanillabox/internal/theme"
 )
 
 // confirmView is the last stop before installing: exactly what will be written,
@@ -28,7 +30,7 @@ func (m Model) confirmView() string {
 		b.WriteString("\n")
 
 		for _, o := range it.component.Options {
-			b.WriteString(m.styles.path.Render("      " + o.Name + ": " + onOff(m.choices[o.ID])))
+			b.WriteString(m.styles.path.Render("      " + o.Name + ": " + m.optionSummary(o)))
 			b.WriteString("\n")
 		}
 	}
@@ -42,9 +44,14 @@ func (m Model) confirmView() string {
 	return b.String()
 }
 
-// onOff renders an option's state the way the review screen lists it.
-func onOff(on bool) string {
-	if on {
+// optionSummary renders an option's state the way the review screen lists it:
+// a switch as on or off, a choice by the name of the value picked.
+func (m Model) optionSummary(o theme.Option) string {
+	if o.Kind == theme.KindSelect {
+		return m.selectedValueName(o)
+	}
+
+	if m.choices.Toggles[o.ID] {
 		return "on"
 	}
 

@@ -39,10 +39,25 @@ func testTheme(t *testing.T) *theme.Theme {
 			{
 				ID: "style", Name: "Plasma style", Source: "style",
 				Target: "plasma/desktoptheme", Default: true, Available: true,
-				Options: []theme.Option{{
-					ID: "transparency", Name: "Transparency",
-					Default: true, OverlayWhenOff: "opaque",
-				}},
+				Options: []theme.Option{
+					{
+						ID: "transparency", Name: "Transparency", Kind: theme.KindToggle,
+						Default: true,
+						OverlayWhenOff: theme.Overlay{
+							From:  "style/opaque",
+							Files: []string{"widgets/panel.svg"},
+						},
+					},
+					{
+						ID: "tint", Name: "Colour", Kind: theme.KindSelect,
+						DefaultValue: "neutral",
+						Values: []theme.OptionValue{
+							{ID: "neutral", Name: "Neutral"},
+							{ID: "slate", Name: "Slate"},
+							{ID: "rose", Name: "Rose"},
+						},
+					},
+				},
 			},
 			{
 				ID: "cursors", Name: "Cursors", Source: "missing",
@@ -90,6 +105,10 @@ func keyPress(k string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'j', Text: "j"}
 	case "up":
 		return tea.KeyPressMsg{Code: 'k', Text: "k"}
+	case "left":
+		return tea.KeyPressMsg{Code: 'h', Text: "h"}
+	case "right":
+		return tea.KeyPressMsg{Code: 'l', Text: "l"}
 	}
 
 	panic("unhandled key " + k)
@@ -156,7 +175,7 @@ func TestOptionsScreenStartsOnDefaults(t *testing.T) {
 	if m.screen != screenOptions {
 		t.Fatalf("screen = %v, want screenOptions", m.screen)
 	}
-	if !m.choices["transparency"] {
+	if !m.choices.Toggles["transparency"] {
 		t.Error("transparency should start on, from the option's default")
 	}
 
@@ -165,8 +184,51 @@ func TestOptionsScreenStartsOnDefaults(t *testing.T) {
 	}
 
 	m, _ = send(m, " ")
-	if m.choices["transparency"] {
+	if m.choices.Toggles["transparency"] {
 		t.Error("space should turn the option off")
+	}
+}
+
+// TestSelectCyclesThroughItsValues covers the row kind the transparency split
+// does not exercise: a choice among values rather than a switch.
+func TestSelectCyclesThroughItsValues(t *testing.T) {
+	m := New(testTheme(t))
+
+	m, _ = send(m, "enter")
+	m.optionCursor = 1 // the select
+
+	if got := m.choices.Values["tint"]; got != "neutral" {
+		t.Fatalf("tint = %q, want the declared default", got)
+	}
+
+	m, _ = send(m, "right")
+	if got := m.choices.Values["tint"]; got != "slate" {
+		t.Errorf("tint after right = %q, want slate", got)
+	}
+
+	// Backwards from the first value wraps to the last, so neither end is a
+	// dead stop the user has to travel back across.
+	m, _ = send(m, "left", "left")
+	if got := m.choices.Values["tint"]; got != "rose" {
+		t.Errorf("tint after wrapping backwards = %q, want rose", got)
+	}
+
+	if view := renderView(m); !strings.Contains(view, "Rose") {
+		t.Error("options view should show the chosen value by name")
+	}
+}
+
+// TestSidewaysKeysHiddenWithoutASelect keeps the help line honest: the arrows
+// only do something where a row has more than two states.
+func TestSidewaysKeysHiddenWithoutASelect(t *testing.T) {
+	th := testTheme(t)
+	th.Components[1].Options = th.Components[1].Options[:1] // drop the select
+
+	m := New(th)
+	m, _ = send(m, "enter")
+
+	if m.keys.Next.Enabled() {
+		t.Error("the sideways bindings should be disabled when no select is on screen")
 	}
 }
 

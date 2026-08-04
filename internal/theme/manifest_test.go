@@ -14,7 +14,13 @@ const validManifest = `{
     { "id": "colors", "name": "Color scheme", "source": "color-schemes/VanillaBox.colors",
       "target": "color-schemes", "default": true,
       "options": [
-        { "id": "transparency", "name": "Transparency", "default": true, "overlayWhenOff": "opaque" }
+        { "id": "transparency", "name": "Transparency", "default": true,
+          "overlayWhenOff": { "from": "opaque" } },
+        { "id": "tint", "name": "Colour", "kind": "select", "defaultValue": "neutral",
+          "values": [
+            { "id": "neutral", "name": "Neutral" },
+            { "id": "slate", "name": "Slate", "overlay": { "from": "variants/slate" } }
+          ] }
       ] },
     { "id": "icons", "name": "Icons", "source": "icons/VanillaBox", "target": "icons" }
   ]
@@ -39,8 +45,20 @@ func TestLoadManifest(t *testing.T) {
 	if !theme.Components[0].Default {
 		t.Error("colors should default to selected")
 	}
-	if got := theme.Components[0].Options; len(got) != 1 || got[0].OverlayWhenOff != "opaque" {
-		t.Errorf("colors options = %+v, want one overlaying \"opaque\"", got)
+	opts := theme.Components[0].Options
+	if len(opts) != 2 {
+		t.Fatalf("colors options = %+v, want a toggle and a select", opts)
+	}
+	if opts[0].OverlayWhenOff.From != "opaque" {
+		t.Errorf("toggle overlay = %+v, want \"opaque\"", opts[0].OverlayWhenOff)
+	}
+	// An unset kind means a toggle, so manifests written before selects existed
+	// keep working.
+	if opts[0].Kind == KindSelect {
+		t.Error("an option without a kind should be a toggle")
+	}
+	if opts[1].Kind != KindSelect || opts[1].DefaultValue != "neutral" {
+		t.Errorf("select = %+v, want a select defaulting to neutral", opts[1])
 	}
 	if theme.Stamp == "" {
 		t.Error("LoadManifest should fix a backup stamp for the run")
@@ -96,14 +114,22 @@ func TestLoadManifestErrors(t *testing.T) {
 			{"id": "a", "name": "B", "source": "s", "target": "t"}]}`},
 		{name: "option without id", manifest: `{"name": "V", "components": [
 			{"id": "a", "name": "A", "source": "s", "target": "t",
-			 "options": [{"name": "O", "overlayWhenOff": "opaque"}]}]}`},
+			 "options": [{"name": "O", "overlayWhenOff": {"from": "opaque"}}]}]}`},
 		{name: "option without overlay", manifest: `{"name": "V", "components": [
 			{"id": "a", "name": "A", "source": "s", "target": "t",
 			 "options": [{"id": "o", "name": "O"}]}]}`},
 		{name: "duplicate option ids", manifest: `{"name": "V", "components": [
 			{"id": "a", "name": "A", "source": "s", "target": "t", "options": [
-				{"id": "o", "name": "O", "overlayWhenOff": "opaque"},
-				{"id": "o", "name": "P", "overlayWhenOff": "opaque"}]}]}`},
+				{"id": "o", "name": "O", "overlayWhenOff": {"from": "opaque"}},
+				{"id": "o", "name": "P", "overlayWhenOff": {"from": "opaque"}}]}]}`},
+		{name: "select with one value", manifest: `{"name": "V", "components": [
+			{"id": "a", "name": "A", "source": "s", "target": "t", "options": [
+				{"id": "o", "name": "O", "kind": "select", "defaultValue": "x",
+				 "values": [{"id": "x", "name": "X"}]}]}]}`},
+		{name: "select defaulting to an unknown value", manifest: `{"name": "V", "components": [
+			{"id": "a", "name": "A", "source": "s", "target": "t", "options": [
+				{"id": "o", "name": "O", "kind": "select", "defaultValue": "gone",
+				 "values": [{"id": "x", "name": "X"}, {"id": "y", "name": "Y"}]}]}]}`},
 	}
 
 	for _, tt := range tests {

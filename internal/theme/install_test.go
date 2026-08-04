@@ -27,18 +27,32 @@ func installFixture(t *testing.T) (*Theme, Component) {
 		ID: "style", Name: "Plasma style", Source: "style",
 		Target: "plasma/desktoptheme",
 		Options: []Option{{
-			ID: "transparency", Name: "Transparency",
-			Default: true, OverlayWhenOff: "opaque",
+			ID: "transparency", Name: "Transparency", Kind: KindToggle,
+			Default: true,
+			OverlayWhenOff: Overlay{
+				From:  "style/opaque",
+				Files: []string{"widgets/panel.svg"},
+			},
 		}},
 	}
 
 	return &Theme{AssetDir: assets, Stamp: "20260730-120000"}, component
 }
 
+// on returns choices with every named toggle set.
+func on(ids ...string) Choices {
+	ch := NewChoices()
+	for _, id := range ids {
+		ch.Toggles[id] = true
+	}
+
+	return ch
+}
+
 func TestInstallCopiesTheComponent(t *testing.T) {
 	theme, component := installFixture(t)
 
-	if err := theme.Install(component, map[string]bool{"transparency": true}); err != nil {
+	if err := theme.Install(component, on("transparency")); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -60,7 +74,7 @@ func TestInstallCopiesTheComponent(t *testing.T) {
 func TestInstallOverlaysWhenOptionIsOff(t *testing.T) {
 	theme, component := installFixture(t)
 
-	if err := theme.Install(component, map[string]bool{"transparency": false}); err != nil {
+	if err := theme.Install(component, NewChoices()); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -80,7 +94,7 @@ func TestInstallOverlaysWhenOptionIsOff(t *testing.T) {
 func TestInstallBacksUpAnExistingInstall(t *testing.T) {
 	theme, component := installFixture(t)
 
-	if err := theme.Install(component, map[string]bool{"transparency": true}); err != nil {
+	if err := theme.Install(component, on("transparency")); err != nil {
 		t.Fatalf("first Install: %v", err)
 	}
 
@@ -89,7 +103,7 @@ func TestInstallBacksUpAnExistingInstall(t *testing.T) {
 	dst := theme.TargetPath(component)
 	writeFile(t, filepath.Join(dst, "widgets", "custom.svg"), "mine\n")
 
-	if err := theme.Install(component, map[string]bool{"transparency": true}); err != nil {
+	if err := theme.Install(component, on("transparency")); err != nil {
 		t.Fatalf("second Install: %v", err)
 	}
 
@@ -107,10 +121,54 @@ func TestInstallBacksUpAnExistingInstall(t *testing.T) {
 	}
 }
 
+// TestInstallWritesResolvedFiles covers the files that depend on more than one
+// option. Layering them as overlays would make the order they are applied in
+// decide the result; naming the combination in the path does not.
+func TestInstallWritesResolvedFiles(t *testing.T) {
+	theme, component := installFixture(t)
+
+	writeFile(t, filepath.Join(theme.AssetDir, "variants", "rc", "square-mac", "rc"), "square+mac\n")
+	writeFile(t, filepath.Join(theme.AssetDir, "variants", "rc", "rounded-mac", "rc"), "rounded+mac\n")
+
+	component.Resolved = []Resolved{{
+		Source: "variants/rc/{decoration}-{buttons}/rc",
+		Target: "themerc",
+	}}
+
+	choices := on("transparency")
+	choices.Values["decoration"] = "square"
+	choices.Values["buttons"] = "mac"
+
+	if err := theme.Install(component, choices); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	got := readFile(t, filepath.Join(theme.TargetPath(component), "themerc"))
+	if got != "square+mac\n" {
+		t.Errorf("themerc = %q, want the square+mac combination", got)
+	}
+}
+
+// TestInstallReportsAnUnfillablePlaceholder checks the failure names the option
+// rather than the path it produced, which is a step too late to be useful.
+func TestInstallReportsAnUnfillablePlaceholder(t *testing.T) {
+	theme, component := installFixture(t)
+
+	component.Resolved = []Resolved{{Source: "variants/{nosuch}/rc", Target: "themerc"}}
+
+	err := theme.Install(component, on("transparency"))
+	if err == nil {
+		t.Fatal("Install succeeded with an unfillable placeholder, want an error")
+	}
+	if !strings.Contains(err.Error(), "nosuch") {
+		t.Errorf("error should name the missing option, got %v", err)
+	}
+}
+
 func TestInstallReportsAMissingSource(t *testing.T) {
 	theme, _ := installFixture(t)
 
-	err := theme.Install(Component{ID: "gone", Name: "Gone", Source: "nowhere", Target: "x"}, nil)
+	err := theme.Install(Component{ID: "gone", Name: "Gone", Source: "nowhere", Target: "x"}, NewChoices())
 	if err == nil {
 		t.Fatal("Install succeeded with a missing source, want an error")
 	}
@@ -123,39 +181,24 @@ func TestInstallReportsAMissingSource(t *testing.T) {
 // into a temporary data directory. It is the end-to-end check that the artwork
 // and the manifest agree with each other.
 func TestShippedThemeInstalls(t *testing.T) {
-	const panel = "widgets/panel-background.svg"
-
 	for _, transparency := range []bool{true, false} {
 		t.Run("transparency="+onOff(transparency), func(t *testing.T) {
-			t.Setenv("XDG_DATA_HOME", t.TempDir())
-
-			theme, err := LoadManifest("../../assets")
-			if err != nil {
-				t.Fatalf("LoadManifest: %v", err)
-			}
-
-			choices := map[string]bool{"transparency": transparency}
-			for _, c := range theme.Components {
-				if err := theme.Install(c, choices); err != nil {
-					t.Fatalf("install %s: %v", c.ID, err)
+			theme, style := installShipped(t, func(ch Choices) {
+				for id := range ch.Toggles {
+					ch.Toggles[id] = transparency
 				}
-			}
+			})
 
-			style := theme.TargetPath(theme.Components[1])
-			if theme.Components[1].ID != "plasma-style" {
-				t.Fatalf("expected plasma-style second, got %q", theme.Components[1].ID)
-			}
-
-			// The panel follows the option; the task manager never does, because
-			// its translucency is white highlight artwork rather than background.
 			translucent := strings.Contains(
-				readFile(t, filepath.Join(style, filepath.FromSlash(panel))),
+				readFile(t, filepath.Join(style, filepath.FromSlash("widgets/panel-background.svg"))),
 				"fill-opacity:0.85",
 			)
 			if translucent != transparency {
 				t.Errorf("panel translucent = %v, want %v", translucent, transparency)
 			}
 
+			// The task manager never follows the option, because its translucency
+			// is white highlight artwork rather than a background.
 			tasks := readFile(t, filepath.Join(style, "widgets", "tasks.svg"))
 			if !strings.Contains(tasks, "fill-opacity:0.3") {
 				t.Error("tasks.svg should keep its highlight opacity whatever the option")
@@ -171,6 +214,67 @@ func TestShippedThemeInstalls(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTransparencyTogglesActIndependently is what the split bought: turning one
+// surface opaque must leave the other two alone. A whole-directory overlay
+// could not do this without a directory per combination.
+func TestTransparencyTogglesActIndependently(t *testing.T) {
+	surfaces := map[string]string{
+		"transparency-panel":   "widgets/panel-background.svg",
+		"transparency-popups":  "dialogs/background.svg",
+		"transparency-applets": "widgets/background.svg",
+	}
+
+	for off := range surfaces {
+		t.Run(off, func(t *testing.T) {
+			_, style := installShipped(t, func(ch Choices) {
+				for id := range ch.Toggles {
+					ch.Toggles[id] = true
+				}
+				ch.Toggles[off] = false
+			})
+
+			for id, file := range surfaces {
+				body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+				translucent := strings.Contains(body, "fill-opacity:0.85")
+
+				if want := id != off; translucent != want {
+					t.Errorf("with %s off, %s translucent = %v, want %v", off, file, translucent, want)
+				}
+			}
+		})
+	}
+}
+
+// installShipped installs the real theme into a temporary data directory, with
+// choices starting at the manifest's defaults and adjusted by set. It returns
+// the theme and the installed Plasma style's directory.
+func installShipped(t *testing.T, set func(Choices)) (*Theme, string) {
+	t.Helper()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	theme, err := LoadManifest("../../assets")
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+
+	choices := theme.DefaultChoices()
+	if set != nil {
+		set(choices)
+	}
+
+	for _, c := range theme.Components {
+		if err := theme.Install(c, choices); err != nil {
+			t.Fatalf("install %s: %v", c.ID, err)
+		}
+	}
+
+	if theme.Components[1].ID != "plasma-style" {
+		t.Fatalf("expected plasma-style second, got %q", theme.Components[1].ID)
+	}
+
+	return theme, theme.TargetPath(theme.Components[1])
 }
 
 // TestShippedStyleFollowsTheColorScheme guards the mechanism a colour variant
@@ -191,7 +295,7 @@ func TestShippedStyleFollowsTheColorScheme(t *testing.T) {
 	if style.ID != "plasma-style" {
 		t.Fatalf("expected plasma-style second, got %q", style.ID)
 	}
-	if err := theme.Install(style, map[string]bool{"transparency": true}); err != nil {
+	if err := theme.Install(style, on("transparency")); err != nil {
 		t.Fatalf("install %s: %v", style.ID, err)
 	}
 
