@@ -1,8 +1,10 @@
 package theme
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -171,12 +173,110 @@ func TestShippedThemeInstalls(t *testing.T) {
 	}
 }
 
+// TestShippedStyleFollowsTheColorScheme guards the mechanism a colour variant
+// rides on. Plasma recolours a theme by substituting the current-color-scheme
+// stylesheet at paint time, which only reaches elements that actually defer to
+// it: they must carry a ColorScheme class and fill with currentColor. A
+// hardcoded hex renders identically today and silently ignores the colors file
+// tomorrow, so the drift is invisible until a variant is added.
+func TestShippedStyleFollowsTheColorScheme(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	theme, err := LoadManifest("../../assets")
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+
+	style := theme.Components[1]
+	if style.ID != "plasma-style" {
+		t.Fatalf("expected plasma-style second, got %q", style.ID)
+	}
+	if err := theme.Install(style, map[string]bool{"transparency": true}); err != nil {
+		t.Fatalf("install %s: %v", style.ID, err)
+	}
+
+	dst := theme.TargetPath(style)
+
+	// Without this file the Plasma shell falls back to the system scheme, and a
+	// tint would reach applications but not the panel.
+	colors := readFile(t, filepath.Join(dst, "colors"))
+	for _, section := range []string{"[Colors:Window]", "[Colors:Tooltip]", "[Colors:Selection]"} {
+		if !strings.Contains(colors, section) {
+			t.Errorf("colors is missing %s", section)
+		}
+	}
+
+	// The stylesheet block legitimately names the colour as an editor fallback;
+	// everywhere else a background hex means the element opted out.
+	defs := regexp.MustCompile(`(?s)<defs>.*?</defs>`)
+
+	found := map[string]bool{}
+	err = filepath.WalkDir(dst, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".svg" {
+			return err
+		}
+
+		body := defs.ReplaceAllString(readFile(t, path), "")
+		rel := filepath.ToSlash(mustRel(t, dst, path))
+
+		if strings.Contains(body, "fill:#292929") {
+			t.Errorf("%s: background is hardcoded, so a colors file cannot reach it", rel)
+		}
+		if strings.Contains(body, "ColorScheme-Background") {
+			found[rel] = true
+			if !strings.Contains(body, "fill:currentColor") {
+				t.Errorf("%s: claims ColorScheme-Background but never fills with currentColor", rel)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", dst, err)
+	}
+
+	// The four background surfaces, each present in the theme root and again
+	// under the opaque/ and solid/ prefixes Plasma falls back to; scrollbar draws
+	// its trough from the same colour. Listing them rather than counting keeps a
+	// surface that quietly stops following the scheme from passing unnoticed.
+	want := []string{"widgets/scrollbar.svg"}
+	for _, prefix := range []string{"", "opaque/", "solid/"} {
+		want = append(want,
+			prefix+"widgets/panel-background.svg",
+			prefix+"widgets/background.svg",
+			prefix+"widgets/tooltip.svg",
+			prefix+"dialogs/background.svg",
+		)
+	}
+
+	for _, path := range want {
+		if !found[path] {
+			t.Errorf("%s does not follow the colour scheme", path)
+		}
+		delete(found, path)
+	}
+	for path := range found {
+		t.Errorf("%s follows the colour scheme but is not in the expected set", path)
+	}
+}
+
 func onOff(on bool) string {
 	if on {
 		return "on"
 	}
 
 	return "off"
+}
+
+func mustRel(t *testing.T, base, path string) string {
+	t.Helper()
+
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		t.Fatalf("rel %s %s: %v", base, path, err)
+	}
+
+	return rel
 }
 
 func readFile(t *testing.T, path string) string {
