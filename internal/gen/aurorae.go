@@ -32,7 +32,7 @@ const decorationNote = `<!-- Corner tiles are 8 wide so the top two corners carr
 
 // button renders one Aurorae titlebar button: a 24x24 canvas holding four
 // states. The resting and deactivated states show only the glyph; hover and
-// pressed lay a rounded plate beneath it.
+// pressed lay a plate beneath it, rounded only if the style asks for it.
 type button struct {
 	Glyph string
 
@@ -57,10 +57,13 @@ func (b button) render() string {
 			b.Glyph, b.GlyphFill, opacity)
 	}
 	plate := func(opacity string) string {
-		r := n(b.Radius)
+		corners := ""
+		if b.Radius > 0 {
+			corners = fmt.Sprintf(` rx="%s" ry="%s"`, n(b.Radius), n(b.Radius))
+		}
 
-		return fmt.Sprintf(`<rect x="0" y="0" width="24" height="24" fill="%s" rx="%s" ry="%s" opacity="%s"/>`,
-			b.PlateFill, r, r, opacity)
+		return fmt.Sprintf(`<rect x="0" y="0" width="24" height="24" fill="%s"%s opacity="%s"/>`,
+			b.PlateFill, corners, opacity)
 	}
 	group := func(id string, body ...string) string {
 		return fmt.Sprintf(`<g id="%s-center">%s</g>`, id, strings.Join(body, ""))
@@ -124,6 +127,13 @@ func (c circleButton) render() string {
 // the decoration shape and the button style, which is why it is the one file
 // resolved from a pair of axes rather than laid down by an overlay.
 func auroraeRC(palette map[string]string, style buttonStyle, titleHeight int) string {
+	// Aurorae places a button at ButtonMarginTop from the top of the titlebar and
+	// leaves the rest of the slack below it, so a zero margin sits every button
+	// high. Deriving the margin centres whatever height a style asks for: the
+	// difference is barely visible on the 26px symbols and obvious on the 20px
+	// traffic lights.
+	marginTop := (titleHeight - style.Height) / 2
+
 	return fmt.Sprintf(`[General]
 ActiveTextColor=%s
 InactiveTextColor=%s
@@ -145,13 +155,13 @@ TitleHeight=%d
 ButtonWidth=%d
 ButtonHeight=%d
 ButtonSpacing=0
-ButtonMarginTop=0
+ButtonMarginTop=%d
 ExplicitButtonSpacer=6
 PaddingTop=1
 PaddingBottom=1
 PaddingLeft=1
 PaddingRight=1
-`, rgb(palette["text"]), rgb(palette["textInactive"]), titleHeight, style.Width, style.Height)
+`, rgb(palette["text"]), rgb(palette["textInactive"]), titleHeight, style.Width, style.Height, marginTop)
 }
 
 // lookAndFeelDefaults renders the settings KDE applies when the global theme is

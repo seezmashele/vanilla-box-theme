@@ -440,12 +440,18 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 			}
 
 			rc := readFile(t, filepath.Join(dst, "VanillaBoxDarkrc"))
-			width := "ButtonWidth=28"
+			width, margin := "ButtonWidth=28", "ButtonMarginTop=2"
 			if circles {
-				width = "ButtonWidth=20"
+				width, margin = "ButtonWidth=20", "ButtonMarginTop=5"
 			}
 			if !strings.Contains(rc, width) {
 				t.Errorf("the layout file does not carry the %s metrics (%s)", style, width)
+			}
+
+			// Aurorae leaves the slack below a button, so the margin has to centre
+			// it in the titlebar or a short button rides high.
+			if !strings.Contains(rc, margin) {
+				t.Errorf("%s buttons are not centred in the titlebar (want %s)", style, margin)
 			}
 		})
 	}

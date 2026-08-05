@@ -167,11 +167,16 @@ empty `ButtonsOnRight`, against a default of `ButtonsOnRight=IAX`. **The exact l
 unverified** — confirm them once against System Settings -> Window Decorations before relying on
 them.
 
-**Metrics differ.** `ButtonWidth=28 ButtonHeight=26` suits glyph buttons; traffic lights want
-roughly 16px circles and tighter spacing.
+**Metrics differ.** `ButtonWidth=28 ButtonHeight=26` suits glyph buttons; traffic lights are 20px.
+
+`ButtonMarginTop` is derived rather than set, as `(TitleHeight - ButtonHeight) / 2`. Aurorae places
+a button that far from the top of the titlebar and leaves the remaining slack below it, so the zero
+it held before sat every button high — imperceptibly for the 26px symbols, obviously for the 20px
+traffic lights. The circles stay centred in their own 24x24 tile so the hit area still matches what
+is drawn; it is the button box that moves.
 
 **The interaction model differs.** The Windows-style buttons are monochrome glyphs at rest that
-gain a coloured plate on hover. The Mac style has no glyphs at all: three grey circles at rest,
+gain a square coloured plate on hover. The Mac style has no glyphs at all: three grey circles at rest,
 which take a muted traffic-light colour on hover. This is a per-style treatment, not a shared
 pattern with different values.
 
@@ -264,7 +269,7 @@ shape select is written before the switches that draw from it.
     "rounded": { "titlebar":8 }
   },
   "buttonStyles": {
-    "windows": { "plateRadius":3, "closePlate":"#e0655f", "width":28, "height":26,
+    "windows": { "plateRadius":0, "closePlate":"#e0655f", "width":28, "height":26,
                  "closeHover":"0.75", "plainHover":"0.18", "rest":"0.85", "…":"…" }
   },
   "opacity": { "panel":0.85, "popup":0.85, "tooltip":0 }
