@@ -362,7 +362,7 @@ func TestSquareSurfacesSurviveTheTransparencySwitches(t *testing.T) {
 	for file, toggle := range rounded {
 		t.Run(toggle, func(t *testing.T) {
 			_, style := installShipped(t, func(ch Choices) {
-				ch.Values["surfaces"] = "square"
+				ch.Values["containers"] = "square"
 				ch.Toggles[toggle] = false
 			})
 
@@ -378,32 +378,70 @@ func TestSquareSurfacesSurviveTheTransparencySwitches(t *testing.T) {
 	}
 }
 
-// TestSurfaceShapeReachesEverySurface checks the axis covers what the answer to
-// "what goes square" said it should: not only the panel and popups, but the
-// controls too.
-func TestSurfaceShapeReachesEverySurface(t *testing.T) {
-	for _, shape := range []string{"rounded", "square"} {
-		t.Run(shape, func(t *testing.T) {
-			_, style := installShipped(t, func(ch Choices) {
-				ch.Values["surfaces"] = shape
-			})
+// TestShapeAxesReachEverySurface checks each shape axis covers everything it
+// claims to: containers reach the panel, popups and tooltip across all three
+// compositing prefixes, and elements reach the three controls.
+func TestShapeAxesReachEverySurface(t *testing.T) {
+	axes := map[string][]string{
+		"containers": {
+			"widgets/panel-background.svg", "dialogs/background.svg",
+			"widgets/background.svg", "widgets/tooltip.svg",
+			"opaque/widgets/panel-background.svg", "solid/dialogs/background.svg",
+		},
+		"elements": {
+			"widgets/button.svg", "widgets/lineedit.svg", "widgets/viewitem.svg",
+		},
+	}
 
-			for _, file := range []string{
-				"widgets/panel-background.svg", "dialogs/background.svg",
-				"widgets/background.svg", "widgets/tooltip.svg",
-				"widgets/button.svg", "widgets/lineedit.svg", "widgets/viewitem.svg",
-				"opaque/widgets/panel-background.svg", "solid/dialogs/background.svg",
-			} {
-				body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+	for axis, files := range axes {
+		for _, shape := range []string{"rounded", "square"} {
+			t.Run(axis+"-"+shape, func(t *testing.T) {
+				_, style := installShipped(t, func(ch Choices) {
+					ch.Values[axis] = shape
+				})
 
-				// Rounded corners are arcs in the controls and cubics in the
-				// frames; square ones are neither.
-				curved := strings.Contains(body, " C") || strings.Contains(body, " A")
-				if want := shape == "rounded"; curved != want {
-					t.Errorf("%s curved = %v, want %v for %s", file, curved, want, shape)
+				for _, file := range files {
+					body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+
+					// Rounded corners are arcs in the controls and cubics in the
+					// frames; square ones are neither.
+					curved := strings.Contains(body, " C") || strings.Contains(body, " A")
+					if want := shape == "rounded"; curved != want {
+						t.Errorf("%s curved = %v, want %v for %s", file, curved, want, shape)
+					}
 				}
-			}
-		})
+			})
+		}
+	}
+}
+
+// TestShapeAxesAreIndependent is the point of splitting them. The two overlays
+// are laid down one after the other over the same install, so an axis that
+// wrote a file belonging to the other would silently take it over — and the
+// combination this exists to make reachable, rounded panels around square
+// buttons, would come out rounded throughout.
+func TestShapeAxesAreIndependent(t *testing.T) {
+	_, style := installShipped(t, func(ch Choices) {
+		ch.Values["containers"] = "rounded"
+		ch.Values["elements"] = "square"
+	})
+
+	curved := func(file string) bool {
+		body := readFile(t, filepath.Join(style, filepath.FromSlash(file)))
+
+		return strings.Contains(body, " C") || strings.Contains(body, " A")
+	}
+
+	for _, file := range []string{"widgets/panel-background.svg", "dialogs/background.svg"} {
+		if !curved(file) {
+			t.Errorf("%s should be rounded with rounded containers", file)
+		}
+	}
+
+	for _, file := range []string{"widgets/button.svg", "widgets/lineedit.svg"} {
+		if curved(file) {
+			t.Errorf("%s should be square with square elements", file)
+		}
 	}
 }
 

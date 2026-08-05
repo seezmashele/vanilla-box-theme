@@ -31,17 +31,26 @@ instead, because **each axis owns a disjoint set of files**.
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
-| Surface shape | `square` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
+| Container shape | `square` | baked | the four frames across three prefixes |
+| Element shape | `square` | baked | `button`, `lineedit`, `viewitem` |
 | Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
 | Button style | `mac` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
 
-Square is the default on both shape axes, so that accepting every prompt gives a theme with no
-rounded corners anywhere. They stay separate axes because the two questions are genuinely
-independent — rounded panels under a square titlebar is a combination someone will want — and
-because only the titlebar carries the Aurorae limitation below.
+Square is the default on all three shape axes, so that accepting every prompt gives a theme with no
+rounded corners anywhere. They stay separate axes because the questions are genuinely independent —
+rounded panels under a square titlebar is a combination someone will want, and so is a rounded
+popup around square buttons — and because only the titlebar carries the Aurorae limitation below.
 
-Both values of the surface and button axes carry an overlay, including the default ones. A value
+Containers and elements were one axis at first, on the reasoning that a corner radius is a corner
+radius. They are not: the surfaces a thing sits in and the things sitting in it are separately
+convincing, and holding them together made the one combination people actually reach for —
+rounded panels, square controls — unreachable. Splitting them cost nothing structurally, because
+the two own disjoint sets of files: containers own the backgrounds, elements own the widget
+artwork. That is what lets them be two overlays laid down in either order rather than a product of
+four combinations, which is what a shared file would have forced.
+
+Both values of every shape axis carry an overlay, including the default ones. A value
 that copies nothing would be correct only while the base artwork happens to be what it describes,
 and the base has changed more than once — surfaces from rounded to square, buttons from symbols to
 traffic lights. Making every value carry its own overlay keeps the option independent of that.
@@ -493,11 +502,14 @@ files belong to two different components, so overlays now name an asset-relative
 two cases work the same way.
 
 `from` also takes `{option-id}` placeholders, and the transparency switches need them:
-`variants/surfaces/{surfaces}/opaque`. Two overlays land on the same file here — the square variant
-replaces every surface, and then a switch replaces one of them again with its opaque copy. Drawing
-that copy from a fixed path would put rounded corners back on exactly the surfaces the user made
-opaque, and only on those. Options are applied in the order the manifest declares them, so the
-shape select is written before the switches that draw from it.
+`variants/containers/{containers}/opaque`. Two overlays land on the same file here — the square
+variant replaces every container, and then a switch replaces one of them again with its opaque
+copy. Drawing that copy from a fixed path would put rounded corners back on exactly the surfaces
+the user made opaque, and only on those. Options are applied in the order the manifest declares
+them, so the shape select is written before the switches that draw from it.
+
+The switches follow `containers` and not `elements`, which is the split doing its job: only a
+background has an opaque copy to fall back to, so the element axis has nothing to offer them.
 
 ## Tokens
 
@@ -521,9 +533,13 @@ shape select is written before the switches that draw from it.
     "…":       "…",
     "forest":  { "surfaces":"forest", "accent":"#4a6d41", "onHighlight":"#e8e4dd" }
   },
-  "surfaceShape": {
-    "rounded": { "panel":8, "popup":8, "button":6 },
-    "square":  { "panel":0, "popup":0, "button":0 }
+  "containerShape": {
+    "rounded": { "panel":8, "popup":8 },
+    "square":  { "panel":0, "popup":0 }
+  },
+  "elementShape": {
+    "rounded": { "button":6 },
+    "square":  { "button":0 }
   },
   "decorationShape": {
     "square":  { "titlebar":0 },
@@ -561,7 +577,8 @@ assets/                     generated; committed
     colors/<palette>/               the two colors files      10 files
     decoration/<palette>-<shape>/   decoration.svg            10 files
     defaults/<palette>/             look-and-feel defaults     5 files
-    surfaces/<shape>/               frames and controls       30 files
+    containers/<shape>/             the four frames x3        24 files
+    elements/<shape>/               the three controls         6 files
     buttons/<style>/                titlebar set              10 files
   icons/VanillaBoxIconsDark/
     <context>/scalable/             the icon theme           585 files

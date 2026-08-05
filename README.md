@@ -112,7 +112,8 @@ adding an option means saying where it belongs rather than editing a screen.
 | Preference | Values | Changes |
 | --- | --- | --- |
 | Colour | Neutral, Slate, Plum, Rose, Forest | surfaces **and** the accent that goes with them |
-| Corners | Square, Rounded | panels, popups, buttons, inputs, list items |
+| Panel & popup corners | Square, Rounded | the panel strip, menus, tooltips, applet backgrounds |
+| Button & input corners | Square, Rounded | buttons, search bars, list items |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |
 | Window buttons | Traffic lights, Symbols | close, minimise and maximise |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
@@ -131,10 +132,15 @@ Everything the theme ships is installed. There is no component checklist: choosi
 already choosing a colour scheme, and the rest of the theme is what makes that colour mean
 anything. The review screen still lists every file destination before a byte is written.
 
-Corners and titlebar corners are separate preferences because the two are independent: rounded
-panels under a square titlebar is a reasonable thing to want. The titlebar's rounded variant cannot
-round its *bottom* corners — see the comment in `decoration.svg` — so square is the only shape
-there without a compromise.
+Corners are three preferences rather than one, because the three are independent in practice.
+Rounded panels around square buttons is a real look; so is a rounded titlebar over square
+everything else. The containers a thing sits in and the things sitting in them do not have to
+agree, and they are given different radii when both are rounded — 8 for panels and popups, 6 for
+buttons — because a button rounded as hard as the popup around it looks like it is trying to
+escape.
+
+The titlebar's rounded variant cannot round its *bottom* corners — see the comment in
+`decoration.svg` — so square is the only shape there without a compromise.
 
 Traffic lights are grey circles that take a muted colour on hover, and never show a symbol. They
 stay on the right, where KDE puts window buttons; macOS would put them on the left, and you can

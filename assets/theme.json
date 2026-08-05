@@ -58,9 +58,9 @@
           ]
         },
         {
-          "id": "surfaces",
-          "name": "Corners",
-          "description": "Panels, popups, buttons and list items",
+          "id": "containers",
+          "name": "Panel & popup corners",
+          "description": "The panel strip, menus, tooltips and applet backgrounds",
           "group": "Shape",
           "kind": "select",
           "defaultValue": "square",
@@ -69,14 +69,38 @@
               "id": "square",
               "name": "Square",
               "overlay": {
-                "from": "variants/surfaces/square"
+                "from": "variants/containers/square"
               }
             },
             {
               "id": "rounded",
               "name": "Rounded",
               "overlay": {
-                "from": "variants/surfaces/rounded"
+                "from": "variants/containers/rounded"
+              }
+            }
+          ]
+        },
+        {
+          "id": "elements",
+          "name": "Button & input corners",
+          "description": "Buttons, search bars and list items inside them",
+          "group": "Shape",
+          "kind": "select",
+          "defaultValue": "square",
+          "values": [
+            {
+              "id": "square",
+              "name": "Square",
+              "overlay": {
+                "from": "variants/elements/square"
+              }
+            },
+            {
+              "id": "rounded",
+              "name": "Rounded",
+              "overlay": {
+                "from": "variants/elements/rounded"
               }
             }
           ]
@@ -89,7 +113,7 @@
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "variants/surfaces/{surfaces}/opaque",
+            "from": "variants/containers/{containers}/opaque",
             "files": [
               "widgets/panel-background.svg"
             ]
@@ -103,7 +127,7 @@
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "variants/surfaces/{surfaces}/opaque",
+            "from": "variants/containers/{containers}/opaque",
             "files": [
               "dialogs/background.svg"
             ]
@@ -117,7 +141,7 @@
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
-            "from": "variants/surfaces/{surfaces}/opaque",
+            "from": "variants/containers/{containers}/opaque",
             "files": [
               "widgets/background.svg"
             ]

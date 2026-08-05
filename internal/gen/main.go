@@ -25,7 +25,8 @@ type tokens struct {
 	Palettes   map[string]palette           `json:"palettes"`
 	Status     map[string]string            `json:"status"`
 
-	SurfaceShape    map[string]map[string]float64 `json:"surfaceShape"`
+	ContainerShape  map[string]map[string]float64 `json:"containerShape"`
+	ElementShape    map[string]map[string]float64 `json:"elementShape"`
 	DecorationShape map[string]map[string]float64 `json:"decorationShape"`
 	ButtonStyles    map[string]buttonStyle        `json:"buttonStyles"`
 	Opacity         map[string]float64            `json:"opacity"`
@@ -116,9 +117,10 @@ const (
 	// theme with no rounded corners anywhere. It is also the only titlebar shape
 	// without a compromise: the rounded variant cannot round its bottom corners
 	// under Aurorae.
-	defaultSurfaces = "square"
-	defaultTitlebar = "square"
-	defaultButtons  = "mac"
+	defaultContainers = "square"
+	defaultElements   = "square"
+	defaultTitlebar   = "square"
+	defaultButtons    = "mac"
 
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30
@@ -278,7 +280,7 @@ func (tk *tokens) colours(name string) (map[string]string, string, error) {
 // allFiles is everything the generator writes: the theme as shipped, the
 // variant trees the installer picks from, and the icon theme.
 func allFiles(tk *tokens, ic *iconSpec) (map[string]string, error) {
-	out, err := build(tk, defaultPalette, defaultSurfaces, defaultTitlebar, defaultButtons)
+	out, err := build(tk, defaultPalette, defaultContainers, defaultElements, defaultTitlebar, defaultButtons)
 	if err != nil {
 		return nil, err
 	}
@@ -349,35 +351,50 @@ func variants(tk *tokens) (map[string]string, error) {
 		}
 	}
 
-	// Both surface shapes are written, the shipped one included. The transparency
-	// switches draw their opaque copies out of whichever shape is chosen, so the
-	// rounded tree has to exist as a variant and not only as the base.
-	for shape := range tk.SurfaceShape {
-		files, err := surfaces(tk, defaultPalette, shape)
+	// Both shapes of each are written, the shipped ones included. The
+	// transparency switches draw their opaque copies out of whichever container
+	// shape is chosen, so the rounded tree has to exist as a variant and not
+	// only as the base.
+	//
+	// The two trees touch no file in common — containers own the backgrounds,
+	// elements own the widget artwork — which is what lets them be two overlays
+	// laid down in any order rather than a product of four combinations.
+	for shape := range tk.ContainerShape {
+		files, err := containers(tk, defaultPalette, shape)
 		if err != nil {
 			return nil, err
 		}
 		for path, content := range files {
-			out[variantDir+"/surfaces/"+shape+"/"+path] = content
+			out[variantDir+"/containers/"+shape+"/"+path] = content
+		}
+	}
+
+	for shape := range tk.ElementShape {
+		files, err := elements(tk, defaultPalette, shape)
+		if err != nil {
+			return nil, err
+		}
+		for path, content := range files {
+			out[variantDir+"/elements/"+shape+"/"+path] = content
 		}
 	}
 
 	return out, nil
 }
 
-// surfaces renders the artwork a corner radius reaches: the panel and popup
-// frames across all three prefixes, and the stacked control states.
+// containers renders the artwork a container radius reaches: the panel, popup
+// and tooltip backgrounds, across all three prefixes.
 //
 // Colours here are only the stylesheet fallbacks an editor shows, so the tint
 // makes no difference to the bytes and the default one is used throughout.
-func surfaces(tk *tokens, name, shape string) (map[string]string, error) {
-	palette, accent, err := tk.colours(name)
+func containers(tk *tokens, name, shape string) (map[string]string, error) {
+	palette, _, err := tk.colours(name)
 	if err != nil {
 		return nil, err
 	}
-	radii, ok := tk.SurfaceShape[shape]
+	radii, ok := tk.ContainerShape[shape]
 	if !ok {
-		return nil, fmt.Errorf("no surface shape %q", shape)
+		return nil, fmt.Errorf("no container shape %q", shape)
 	}
 
 	out := map[string]string{}
@@ -387,6 +404,25 @@ func surfaces(tk *tokens, name, shape string) (map[string]string, error) {
 		}
 	}
 
+	return out, nil
+}
+
+// elements renders the artwork an element radius reaches: the stacked control
+// states for buttons, text fields and list items.
+//
+// These carry no opaque or solid copies. Plasma only falls back to those
+// prefixes for backgrounds, and a control has none of its own to make opaque.
+func elements(tk *tokens, name, shape string) (map[string]string, error) {
+	palette, accent, err := tk.colours(name)
+	if err != nil {
+		return nil, err
+	}
+	radii, ok := tk.ElementShape[shape]
+	if !ok {
+		return nil, fmt.Errorf("no element shape %q", shape)
+	}
+
+	out := map[string]string{}
 	for path, c := range controls(palette, accent, tk.Status, radii["button"]) {
 		out["widgets/"+path] = c.render()
 	}
@@ -520,7 +556,7 @@ func (tk *tokens) decoration(name, decoShape string) (string, error) {
 
 // build returns every generated file for one point in the variant space, keyed
 // by repository-relative slash path.
-func build(tk *tokens, name, shape, decoShape, buttons string) (map[string]string, error) {
+func build(tk *tokens, name, containerShape, elementShape, decoShape, buttons string) (map[string]string, error) {
 	palette, acc, err := tk.colours(name)
 	if err != nil {
 		return nil, err
@@ -542,11 +578,19 @@ func build(tk *tokens, name, shape, decoShape, buttons string) (map[string]strin
 	// The theme root carries the translucent artwork. Plasma falls back to the
 	// opaque/ and solid/ prefixes itself when compositing is off, so both ship
 	// whatever the transparency options are set to.
-	surf, err := surfaces(tk, name, shape)
+	cont, err := containers(tk, name, containerShape)
 	if err != nil {
 		return nil, err
 	}
-	for path, content := range surf {
+	for path, content := range cont {
+		out[style+"/"+path] = content
+	}
+
+	elem, err := elements(tk, name, elementShape)
+	if err != nil {
+		return nil, err
+	}
+	for path, content := range elem {
 		out[style+"/"+path] = content
 	}
 
