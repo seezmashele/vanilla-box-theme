@@ -180,6 +180,7 @@ worth writing down. `TestTitlebarButtonMetrics` pins them.
 | **Rendered mark** | 13 x 13 px | 11 px across |
 | `nudgeTop` | -1 | -1 |
 | `ButtonMarginTop` | 0 | 3 |
+| `ButtonWidthMenu` | 20 | 16 |
 | Plate | square, no radius | n/a |
 
 Both boxes are square on purpose. Aurorae scales the 24x24 tile to `ButtonWidth x ButtonHeight`, so
@@ -191,6 +192,14 @@ pixels: the generator converts it back into tile units so the number in the toke
 you measure on screen. `circleRadius` is still in tile units, so it scales with the button box —
 growing the box from 20 to 22 took the circles from 10px to 11px without the token changing.
 Worth unifying if the circles are ever tuned as carefully as the glyphs were.
+
+**The application icon is the one button sized on its own.** Aurorae gives every button the same
+`ButtonHeight` and only the width is per-type, through `ButtonWidthMenu` — so the icon can be made
+smaller sideways and the leftover height is what gives it room above and below. Raising
+`ButtonMarginTop` instead would have pushed the close, minimise and maximise buttons down with it.
+
+`TitleEdgeLeft` is 8 against a `TitleEdgeRight` of 6 for the same reason: the icon sits in the
+corner of the window and wants more of a margin there than the buttons at the other end do.
 
 **`ButtonMarginTop` is derived**, as `(TitleHeight - ButtonHeight) / 2 + nudgeTop`. Aurorae places a
 button that far from the top of the titlebar and leaves the remaining slack below it, so a zero

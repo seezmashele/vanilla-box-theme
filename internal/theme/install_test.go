@@ -467,14 +467,14 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 // would just be the wrong size or sitting a pixel off. See DESIGN.md.
 func TestTitlebarButtonMetrics(t *testing.T) {
 	metrics := map[string]struct {
-		box, margin int
-		mark        string // what the artwork must draw at that size
+		box, margin, menu int
+		mark              string // what the artwork must draw at that size
 	}{
 		// 13x13px symbol on a 28x28 box, flush with the top of the titlebar so
 		// the hover plate has no gap above it.
-		"windows": {box: 28, margin: 0, mark: `scale(0.04352678571428571)`},
+		"windows": {box: 28, margin: 0, menu: 20, mark: `scale(0.04352678571428571)`},
 		// 11px circle on a 22x22 box, a pixel above centre.
-		"mac": {box: 22, margin: 3, mark: `<circle cx="12" cy="12" r="6"`},
+		"mac": {box: 22, margin: 3, menu: 16, mark: `<circle cx="12" cy="12" r="6"`},
 	}
 
 	for style, want := range metrics {
@@ -488,6 +488,10 @@ func TestTitlebarButtonMetrics(t *testing.T) {
 			for _, line := range []string{
 				fmt.Sprintf("ButtonWidth=%d", want.box),
 				fmt.Sprintf("ButtonHeight=%d", want.box),
+				// The application icon is the one button sized separately, and it
+				// is narrower than the row is tall so the leftover height gives it
+				// room above and below.
+				fmt.Sprintf("ButtonWidthMenu=%d", want.menu),
 				fmt.Sprintf("ButtonMarginTop=%d", want.margin),
 				// Maximising a window lays the titlebar out from a separate set of
 				// keys that default to zero, which moved every button. These have
@@ -497,7 +501,11 @@ func TestTitlebarButtonMetrics(t *testing.T) {
 				// branch adds: padding is outside the window, and a maximised
 				// window has none.
 				"TitleEdgeTopMaximized=0",
-				"TitleEdgeLeftMaximized=6",
+				// The left edge is wider than the right so the application icon is
+				// not tucked into the corner.
+				"TitleEdgeLeft=8",
+				"TitleEdgeLeftMaximized=8",
+				"TitleEdgeRight=6",
 				"TitleEdgeRightMaximized=6",
 			} {
 				if !strings.Contains(rc, line) {

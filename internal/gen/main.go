@@ -75,6 +75,12 @@ type buttonStyle struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
 
+	// MenuWidth sizes the titlebar's application icon. Aurorae gives every
+	// button the same height, so this is the only per-button size there is: the
+	// icon shrinks by width and the leftover height centres it, which is where
+	// its breathing room above and below comes from.
+	MenuWidth int `json:"menuWidth"`
+
 	// NudgeTop is added to the margin that centres the button in the titlebar.
 	// Centred and looking centred are not always the same thing, and this is
 	// where that difference is admitted to rather than hidden in the artwork.

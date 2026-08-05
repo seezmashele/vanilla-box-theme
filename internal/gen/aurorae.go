@@ -147,7 +147,8 @@ func auroraeRC(palette map[string]string, style buttonStyle, titleHeight int) st
 		padding         = 1
 		titleEdgeTop    = 0
 		titleEdgeBottom = 0
-		titleEdgeSide   = 6
+		titleEdgeLeft   = 8
+		titleEdgeRight  = 6
 	)
 
 	// Aurorae places a button at ButtonMarginTop from the top of the titlebar and
@@ -177,7 +178,15 @@ func auroraeRC(palette map[string]string, style buttonStyle, titleHeight int) st
 	// restored one.
 	maxTop := titleEdgeTop
 	maxBottom := titleEdgeBottom
-	maxSide := titleEdgeSide
+	maxLeft := titleEdgeLeft
+	maxRight := titleEdgeRight
+
+	// The application icon is the only button whose width is set separately, and
+	// the left edge is wider than the right so it is not tucked into the corner.
+	menuWidth := style.MenuWidth
+	if menuWidth == 0 {
+		menuWidth = style.Width
+	}
 
 	return fmt.Sprintf(`[General]
 ActiveTextColor=%s
@@ -202,6 +211,7 @@ TitleBorderLeft=4
 TitleBorderRight=4
 TitleHeight=%d
 ButtonWidth=%d
+ButtonWidthMenu=%d
 ButtonHeight=%d
 ButtonSpacing=0
 ButtonMarginTop=%d
@@ -212,9 +222,9 @@ PaddingBottom=%d
 PaddingLeft=%d
 PaddingRight=%d
 `, rgb(palette["text"]), rgb(palette["textInactive"]),
-		titleEdgeTop, titleEdgeBottom, titleEdgeSide, titleEdgeSide,
-		maxTop, maxBottom, maxSide, maxSide,
-		titleHeight, style.Width, style.Height,
+		titleEdgeTop, titleEdgeBottom, titleEdgeLeft, titleEdgeRight,
+		maxTop, maxBottom, maxLeft, maxRight,
+		titleHeight, style.Width, menuWidth, style.Height,
 		marginTop, marginTop,
 		padding, padding, padding, padding)
 }
