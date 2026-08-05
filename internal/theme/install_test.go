@@ -444,7 +444,7 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 			// (30-20)/2 — plus whatever optical nudge the style declares. Traffic
 			// traffic lights sit a pixel above centre; symbols sit flush with the top of
 			// the titlebar, so the hover plate has no gap above it.
-			width, margin := "ButtonWidth=26", "ButtonMarginTop=0"
+			width, margin := "ButtonWidth=28", "ButtonMarginTop=0"
 			if circles {
 				width, margin = "ButtonWidth=20", "ButtonMarginTop=4"
 			}

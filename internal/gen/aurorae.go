@@ -34,8 +34,15 @@ const decorationNote = `<!-- Corner tiles are 8 wide so the top two corners carr
 // states. The resting and deactivated states show only the glyph; hover and
 // pressed lay a plate beneath it, rounded only if the style asks for it.
 type button struct {
-	Glyph     string
+	Glyph string
+
+	// GlyphSize is how big the symbol should be on screen, in pixels, and Box is
+	// the square the tile is scaled into. Aurorae stretches the 24x24 tile to the
+	// button box, so a size given in tile units would mean something different
+	// for every button size; giving it in rendered pixels means the number in the
+	// tokens is the number you measure.
 	GlyphSize float64
+	Box       float64
 
 	PlateFill      string
 	HoverOpacity   string
@@ -52,15 +59,16 @@ func (b button) render() string {
 	// whatever the glyph covers.
 	hit := `<rect x="0" y="0" width="24" height="24" fill="#000" fill-opacity="0"/>`
 
-	// The glyph paths are drawn on a 256-unit grid, so the scale that gives a
-	// size-wide symbol is size/256, and the inset that centres it in the tile is
-	// half of what is left over.
+	// The glyph paths are drawn on a 256-unit grid. Converting the wanted screen
+	// size back into tile units undoes the stretch Aurorae will apply, and the
+	// inset that centres it is half of whatever the tile has left over.
 	glyph := func(opacity string) string {
-		inset := (24 - b.GlyphSize) / 2
+		tile := b.GlyphSize * 24 / b.Box
+		inset := (24 - tile) / 2
 
 		return fmt.Sprintf(
 			`<g transform="translate(%s,%s) scale(%s)"><path d="%s" fill="%s" opacity="%s"/></g>`,
-			n(inset), n(inset), exact(b.GlyphSize/256), b.Glyph, b.GlyphFill, opacity)
+			n(inset), n(inset), exact(tile/256), b.Glyph, b.GlyphFill, opacity)
 	}
 	plate := func(opacity string) string {
 		corners := ""

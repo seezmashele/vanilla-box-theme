@@ -56,8 +56,8 @@ type buttonStyle struct {
 	PlainHover   string `json:"plainHover"`
 	PlainPressed string `json:"plainPressed"`
 
-	// GlyphSize is the symbol's size inside the 24x24 tile, before Aurorae
-	// scales the tile to ButtonWidth x ButtonHeight.
+	// GlyphSize is how big the symbol is on screen, in pixels. It assumes a
+	// square button box, which is what keeps the glyph from being stretched.
 	GlyphSize float64 `json:"glyphSize"`
 
 	Rest string `json:"rest"`
@@ -426,7 +426,7 @@ func (tk *tokens) titlebarButtons(name string) (map[string]string, error) {
 	plain := button{
 		PlateFill: palette["text"], HoverOpacity: bs.PlainHover, PressedOpacity: bs.PlainPressed,
 		Radius: bs.PlateRadius, GlyphFill: palette["text"], RestOpen: bs.Rest, DimOpacity: bs.Dim,
-		GlyphSize: bs.GlyphSize,
+		GlyphSize: bs.GlyphSize, Box: float64(bs.Width),
 	}
 
 	for file, glyph := range map[string]string{
