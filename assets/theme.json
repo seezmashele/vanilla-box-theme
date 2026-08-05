@@ -167,19 +167,22 @@
           "description": "Close, minimise and maximise",
           "group": "Shape",
           "kind": "select",
-          "defaultValue": "windows",
+          "defaultValue": "mac",
           "values": [
-            {
-              "id": "windows",
-              "name": "Symbols",
-              "description": "(similar to Windows)"
-            },
             {
               "id": "mac",
               "name": "Traffic lights",
               "description": "(similar to Mac)",
               "overlay": {
                 "from": "variants/buttons/mac"
+              }
+            },
+            {
+              "id": "windows",
+              "name": "Symbols",
+              "description": "(similar to Windows)",
+              "overlay": {
+                "from": "variants/buttons/windows"
               }
             }
           ]

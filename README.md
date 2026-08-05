@@ -74,8 +74,6 @@ to that file, not to the code:
 
 `source` is relative to the asset directory; `target` is relative to `~/.local/share`.
 
-Four components ship:
-
 All four are marked `required`, so all four install and there is nothing to pick between:
 
 | Component | Installs to |
@@ -115,13 +113,13 @@ adding an option means saying where it belongs rather than editing a screen.
 | Colour | Neutral, Ash, Slate, Moss, Rose, Plum | surfaces **and** the accent that goes with them |
 | Corners | Square, Rounded | panels, popups, buttons, inputs, list items |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |
-| Window buttons | Symbols, Traffic lights | close, minimise and maximise |
+| Window buttons | Traffic lights, Symbols | close, minimise and maximise |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
 
 Every default is the first value listed, so accepting each prompt installs Neutral, square corners
-throughout and symbol buttons — a theme with no rounded corners anywhere.
+throughout and traffic-light buttons — a theme with no rounded corners anywhere.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral and Ash share the
@@ -177,6 +175,15 @@ installer's own const.
 runs `go generate` and fails on a dirty tree. Anything under `assets/variants/` the generator no
 longer produces is deleted rather than left behind. See [DESIGN.md](DESIGN.md) for what is
 generated and what is not.
+
+## Applying a decoration change
+
+KWin reads an Aurorae theme once per session. Reinstalling writes new files but the titlebar keeps
+using what it already loaded, so a change to the window decoration — button sizes, positions, the
+titlebar layout — will not appear until KWin reloads. A restart is known to do it.
+
+If a decoration change seems not to have worked, check
+`~/.local/share/aurorae/themes/VanillaBoxDark/VanillaBoxDarkrc` before doubting the change itself.
 
 ## Backups
 

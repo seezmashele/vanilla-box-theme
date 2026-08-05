@@ -101,7 +101,7 @@ const (
 	// under Aurorae.
 	defaultSurfaces = "square"
 	defaultTitlebar = "square"
-	defaultButtons  = "windows"
+	defaultButtons  = "mac"
 
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30

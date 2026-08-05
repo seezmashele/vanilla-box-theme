@@ -33,7 +33,7 @@ instead, because **each axis owns a disjoint set of files**.
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
 | Surface shape | `square` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
 | Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
-| Button style | `windows` | baked | the four button SVGs and `VanillaBoxDarkrc` |
+| Button style | `mac` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
 
 Square is the default on both shape axes, so that accepting every prompt gives a theme with no
@@ -41,9 +41,10 @@ rounded corners anywhere. They stay separate axes because the two questions are 
 independent — rounded panels under a square titlebar is a combination someone will want — and
 because only the titlebar carries the Aurorae limitation below.
 
-Both values of the surface axis carry an overlay, including the default one. A value that copies
-nothing would be correct only while the base artwork happens to be that shape, and the base has
-already changed once.
+Both values of the surface and button axes carry an overlay, including the default ones. A value
+that copies nothing would be correct only while the base artwork happens to be what it describes,
+and the base has changed more than once — surfaces from rounded to square, buttons from symbols to
+traffic lights. Making every value carry its own overlay keeps the option independent of that.
 
 A palette is a surface set and the accent that goes with it, chosen together. Surfaces and
 highlights were two independent axes at first, on the reasoning that they are two questions. They
@@ -227,12 +228,34 @@ The edges also feed the titlebar height. `borderTopMaximized` is
 a maximised titlebar 2px taller than a restored one — a second, larger error hiding behind the
 first.
 
-`TestTitlebarButtonMetrics` asserts the maximised keys alongside the ordinary metrics, because this
-is precisely the kind of thing that is invisible until someone maximises a window.
+These values are **confirmed on a real desktop**, not only reasoned about: the buttons hold their
+position across restore and maximise. `TestTitlebarButtonMetrics` asserts them alongside the
+ordinary metrics, because this is precisely the kind of thing that is invisible until someone
+maximises a window.
 
-Note that KWin reads an Aurorae theme once. Changing these values means reinstalling *and* making
-KWin reload the decoration — switching to another window decoration in System Settings and back is
-enough, and is quicker than restarting the session.
+The working set, for reference:
+
+```ini
+TitleEdgeTop=0                 TitleEdgeTopMaximized=0
+TitleEdgeBottom=0              TitleEdgeBottomMaximized=0
+TitleEdgeLeft=6                TitleEdgeLeftMaximized=6
+TitleEdgeRight=6               TitleEdgeRightMaximized=6
+ButtonMarginTop=3              ButtonMarginTopMaximized=3     ; traffic lights; 0 for symbols
+PaddingTop=1  PaddingBottom=1  PaddingLeft=1  PaddingRight=1
+```
+
+### Applying a decoration change
+
+KWin reads an Aurorae theme **once**, and caches it for the life of the session. Reinstalling puts
+new files on disk and changes nothing on screen.
+
+What was confirmed to work is a full restart. Switching to another window decoration in System
+Settings and back is the obvious lighter alternative and may be enough, but it has not been shown to
+be — a change that appeared not to work here turned out to have been correct on disk the whole time,
+and the only thing that had failed was getting KWin to read it.
+
+That is worth remembering before concluding that a decoration edit did not work: check the
+installed `VanillaBoxDarkrc` first, and only then doubt the values.
 
 **The interaction model differs.** The Windows-style buttons are monochrome glyphs at rest that
 gain a square coloured plate on hover. The Mac style has no glyphs at all: three grey circles at rest,
@@ -247,8 +270,9 @@ be the most saturated pixels on screen by a wide margin.
 three. Aurorae renders each button from its own SVG with no knowledge of its neighbours, so here
 hovering close colours only close. This is a limitation of the format, not a choice.
 
-**The buttons stay on the right.** Left is the macOS convention and the only place the traffic-light
-shape normally appears, so the Mac variant is the shape without the placement. It is deliberate:
+**The buttons stay on the right,** including now that traffic lights are the default. Left is the
+macOS convention and the only place the traffic-light shape normally appears, so this is the shape
+without the placement. It is deliberate:
 button order is a `kwinrc` setting rather than an Aurorae file, so writing it would overwrite a
 preference the user may have set for reasons of their own — and they can move the buttons in System
 Settings at any time without reinstalling. Left is what a macOS switcher, an RTL locale (where KWin
@@ -537,12 +561,17 @@ Unchanged: one colour scheme, one Plasma style, one Aurorae theme, one look-and-
 Variants never multiply what lands in `~/.local/share`; they only decide which bytes are copied.
 Backups continue to work as described in the README.
 
+## Settled
+
+- **Whether Aurorae substitutes colours at runtime no longer matters.** It was open for a while:
+  the five Aurorae SVGs have no `current-color-scheme` block, so if Aurorae did substitute, the
+  theme was not taking advantage of it. Nothing now depends on the answer — `decoration.svg` is
+  generated per palette with its colours already baked in, and the buttons are painted in
+  foregrounds that are held constant across every palette.
+- **The maximised layout keys work as described**, verified on a real desktop after a restart.
+
 ## Open questions
 
-- **Does Aurorae substitute colours at runtime?** The five Aurorae SVGs have no
-  `current-color-scheme` block, and no system Aurorae theme is installed to compare against. If it
-  does not, a palette multiplies the *generated* titlebar files; hand-maintained files stay
-  flat either way, so the risk is contained. Worth testing early regardless.
 - **Adding an accent is two edits, not one:** the colour in `spec/tokens.json`, and the value in
   `assets/theme.json` so the installer offers it. The manifest stays hand-written by decision —
   the README promises that adding a component is an edit to it rather than to the code, and
