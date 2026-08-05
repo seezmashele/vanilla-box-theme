@@ -171,11 +171,13 @@
           "values": [
             {
               "id": "windows",
-              "name": "Symbols"
+              "name": "Symbols",
+              "description": "(similar to Windows)"
             },
             {
               "id": "mac",
               "name": "Traffic lights",
+              "description": "(similar to Mac)",
               "overlay": {
                 "from": "variants/buttons/mac"
               }

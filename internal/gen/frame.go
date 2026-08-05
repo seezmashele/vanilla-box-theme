@@ -179,6 +179,13 @@ func (f frame) panelCorners() (tl, tr, bl, br string) {
 	return tl, tr, bl, br
 }
 
+// exact formats a value at whatever precision it needs, for the handful of
+// numbers that are scale factors rather than coordinates: rounding a scale to
+// three decimals resizes what it is applied to.
+func exact(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
 // n formats a coordinate the way the artwork writes them: three decimals at
 // most, and no trailing zeros or bare point.
 func n(v float64) string {

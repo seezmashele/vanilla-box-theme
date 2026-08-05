@@ -56,6 +56,10 @@ type buttonStyle struct {
 	PlainHover   string `json:"plainHover"`
 	PlainPressed string `json:"plainPressed"`
 
+	// GlyphSize is the symbol's size inside the 24x24 tile, before Aurorae
+	// scales the tile to ButtonWidth x ButtonHeight.
+	GlyphSize float64 `json:"glyphSize"`
+
 	Rest string `json:"rest"`
 	Dim  string `json:"dim"`
 
@@ -70,6 +74,11 @@ type buttonStyle struct {
 
 	Width  int `json:"width"`
 	Height int `json:"height"`
+
+	// NudgeTop is added to the margin that centres the button in the titlebar.
+	// Centred and looking centred are not always the same thing, and this is
+	// where that difference is admitted to rather than hidden in the artwork.
+	NudgeTop int `json:"nudgeTop"`
 
 	ButtonsOnLeft  string `json:"buttonsOnLeft"`
 	ButtonsOnRight string `json:"buttonsOnRight"`
@@ -417,6 +426,7 @@ func (tk *tokens) titlebarButtons(name string) (map[string]string, error) {
 	plain := button{
 		PlateFill: palette["text"], HoverOpacity: bs.PlainHover, PressedOpacity: bs.PlainPressed,
 		Radius: bs.PlateRadius, GlyphFill: palette["text"], RestOpen: bs.Rest, DimOpacity: bs.Dim,
+		GlyphSize: bs.GlyphSize,
 	}
 
 	for file, glyph := range map[string]string{

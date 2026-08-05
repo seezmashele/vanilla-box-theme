@@ -95,9 +95,12 @@ func (m Model) renderRow(i int, row optionRow) string {
 			mark, style = "(•)", m.styles.selected
 		}
 
-		row := cursor + "  " + style.Render(mark+" "+row.value.Name)
+		out := cursor + "  " + style.Render(mark+" "+row.value.Name)
+		if row.value.Description != "" {
+			out += " " + m.styles.dimmed.Render(row.value.Description)
+		}
 
-		return row
+		return out
 
 	default:
 		return cursor + m.renderToggle(row.option)

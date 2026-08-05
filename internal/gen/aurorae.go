@@ -34,7 +34,8 @@ const decorationNote = `<!-- Corner tiles are 8 wide so the top two corners carr
 // states. The resting and deactivated states show only the glyph; hover and
 // pressed lay a plate beneath it, rounded only if the style asks for it.
 type button struct {
-	Glyph string
+	Glyph     string
+	GlyphSize float64
 
 	PlateFill      string
 	HoverOpacity   string
@@ -51,10 +52,15 @@ func (b button) render() string {
 	// whatever the glyph covers.
 	hit := `<rect x="0" y="0" width="24" height="24" fill="#000" fill-opacity="0"/>`
 
+	// The glyph paths are drawn on a 256-unit grid, so the scale that gives a
+	// size-wide symbol is size/256, and the inset that centres it in the tile is
+	// half of what is left over.
 	glyph := func(opacity string) string {
+		inset := (24 - b.GlyphSize) / 2
+
 		return fmt.Sprintf(
-			`<g transform="translate(6,6) scale(0.046875)"><path d="%s" fill="%s" opacity="%s"/></g>`,
-			b.Glyph, b.GlyphFill, opacity)
+			`<g transform="translate(%s,%s) scale(%s)"><path d="%s" fill="%s" opacity="%s"/></g>`,
+			n(inset), n(inset), exact(b.GlyphSize/256), b.Glyph, b.GlyphFill, opacity)
 	}
 	plate := func(opacity string) string {
 		corners := ""
@@ -132,7 +138,7 @@ func auroraeRC(palette map[string]string, style buttonStyle, titleHeight int) st
 	// high. Deriving the margin centres whatever height a style asks for: the
 	// difference is barely visible on the 26px symbols and obvious on the 20px
 	// traffic lights.
-	marginTop := (titleHeight - style.Height) / 2
+	marginTop := (titleHeight-style.Height)/2 + style.NudgeTop
 
 	return fmt.Sprintf(`[General]
 ActiveTextColor=%s

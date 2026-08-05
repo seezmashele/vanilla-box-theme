@@ -440,9 +440,12 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 			}
 
 			rc := readFile(t, filepath.Join(dst, "VanillaBoxDarkrc"))
+			// The margin centres the button in the 30px titlebar — (30-26)/2 and
+			// (30-20)/2 — plus whatever optical nudge the style declares. Traffic
+			// traffic lights carry a nudge of -1, sitting a pixel above centre; symbols carry none.
 			width, margin := "ButtonWidth=28", "ButtonMarginTop=2"
 			if circles {
-				width, margin = "ButtonWidth=20", "ButtonMarginTop=5"
+				width, margin = "ButtonWidth=20", "ButtonMarginTop=4"
 			}
 			if !strings.Contains(rc, width) {
 				t.Errorf("the layout file does not carry the %s metrics (%s)", style, width)
