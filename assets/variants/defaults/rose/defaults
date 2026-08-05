@@ -1,7 +1,10 @@
 [kdeglobals][General]
 ColorScheme=VanillaBoxDark
 accentColorFromWallpaper=false
-AccentColor=184,119,106
+AccentColor=192,122,140
+
+[kdeglobals][Icons]
+Theme=VanillaBoxIconsDark
 
 [plasmarc][Theme]
 name=vanilla-box-dark

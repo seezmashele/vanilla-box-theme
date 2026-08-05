@@ -37,6 +37,17 @@ type tokens struct {
 type palette struct {
 	Surfaces string `json:"surfaces"`
 	Accent   string `json:"accent"`
+
+	// OnHighlight overrides foreground.onHighlight for this palette alone, and
+	// is the one exception to holding the foregrounds still.
+	//
+	// The accent is the selection background, and it is the only colour a
+	// palette moves that text has to sit on top of rather than beside. An accent
+	// dark enough stops carrying the shared dark on-highlight colour, and no
+	// amount of tuning elsewhere fixes it: the two are the same decision. A
+	// palette that wants to go that dark says so here rather than dragging every
+	// other palette's foregrounds into the question.
+	OnHighlight string `json:"onHighlight,omitempty"`
 }
 
 // buttonStyle is one titlebar button treatment. The plate opacities differ
@@ -116,7 +127,13 @@ const (
 
 func main() {
 	root := flag.String("root", ".", "repository root to write into")
+	fetch := flag.Bool("fetch", false, "vendor the icon artwork spec/icons.json names, then exit")
 	flag.Parse()
+
+	run := run
+	if *fetch {
+		run = fetchSources
+	}
 
 	if err := run(*root); err != nil {
 		fmt.Fprintln(os.Stderr, "gen:", err)
@@ -130,7 +147,12 @@ func run(root string) error {
 		return err
 	}
 
-	files, err := allFiles(tk)
+	ic, err := loadIcons(root)
+	if err != nil {
+		return err
+	}
+
+	files, err := allFiles(tk, ic)
 	if err != nil {
 		return err
 	}
@@ -145,17 +167,29 @@ func run(root string) error {
 		}
 	}
 
-	return prune(root, files)
+	return prune(root, files, variantDir, iconRoot)
 }
 
-// prune deletes anything under variants/ the generator did not just write.
+// prune deletes anything under the wholly-generated trees that the generator
+// did not just write.
 //
 // Renaming a variant otherwise leaves the old one behind, committed and
-// installable, describing a combination the manifest no longer offers. Only
-// variants/ is swept: the rest of assets/ mixes generated files with
+// installable, describing a combination the manifest no longer offers; an icon
+// mapping that is removed leaves an icon the theme keeps answering with. Only
+// these trees are swept: the rest of assets/ mixes generated files with
 // hand-maintained ones, and nothing there should be deleted by a build.
-func prune(root string, written map[string]string) error {
-	dir := filepath.Join(root, filepath.FromSlash(variantDir))
+func prune(root string, written map[string]string, trees ...string) error {
+	for _, tree := range trees {
+		if err := pruneTree(root, written, tree); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func pruneTree(root string, written map[string]string, tree string) error {
+	dir := filepath.Join(root, filepath.FromSlash(tree))
 	if _, err := os.Stat(dir); err != nil {
 		return nil
 	}
@@ -234,13 +268,16 @@ func (tk *tokens) colours(name string) (map[string]string, string, error) {
 	for k, v := range tk.Foreground {
 		merged[k] = v
 	}
+	if p.OnHighlight != "" {
+		merged["onHighlight"] = p.OnHighlight
+	}
 
 	return merged, p.Accent, nil
 }
 
-// allFiles is everything the generator writes: the theme as shipped, plus the
-// variant trees the installer picks from.
-func allFiles(tk *tokens) (map[string]string, error) {
+// allFiles is everything the generator writes: the theme as shipped, the
+// variant trees the installer picks from, and the icon theme.
+func allFiles(tk *tokens, ic *iconSpec) (map[string]string, error) {
 	out, err := build(tk, defaultPalette, defaultSurfaces, defaultTitlebar, defaultButtons)
 	if err != nil {
 		return nil, err
@@ -251,6 +288,17 @@ func allFiles(tk *tokens) (map[string]string, error) {
 		return nil, err
 	}
 	for path, content := range extra {
+		out[path] = content
+	}
+
+	// Icons take no variant axis. They are monochrome and carry the colour
+	// scheme's class, so a palette repaints them at paint time and the bytes are
+	// the same for all five.
+	set, err := icons(tk, ic)
+	if err != nil {
+		return nil, err
+	}
+	for path, content := range set {
 		out[path] = content
 	}
 
@@ -288,7 +336,7 @@ func variants(tk *tokens) (map[string]string, error) {
 	}
 
 	for name, p := range tk.Palettes {
-		out[variantDir+"/defaults/"+name+"/defaults"] = lookAndFeelDefaults(p.Accent, "", "")
+		out[variantDir+"/defaults/"+name+"/defaults"] = lookAndFeelDefaults(tk.Theme.IconsID, p.Accent, "", "")
 	}
 
 	for name := range tk.ButtonStyles {
@@ -516,7 +564,7 @@ func build(tk *tokens, name, shape, decoShape, buttons string) (map[string]strin
 		out[auroraeDir+"/"+path] = content
 	}
 
-	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults(acc, "", "")
+	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults(tk.Theme.IconsID, acc, "", "")
 
 	// Identity: the same handful of facts KDE wants in three formats, plus the
 	// installer's own copy of the version.

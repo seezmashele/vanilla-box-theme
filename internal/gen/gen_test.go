@@ -19,7 +19,12 @@ func TestGeneratedFilesAreCommitted(t *testing.T) {
 		t.Fatalf("loadTokens: %v", err)
 	}
 
-	files, err := allFiles(tk)
+	ic, err := loadIcons(root)
+	if err != nil {
+		t.Fatalf("loadIcons: %v", err)
+	}
+
+	files, err := allFiles(tk, ic)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -68,4 +73,135 @@ func firstTile(svg string) string {
 	}
 
 	return svg[start : start+strings.Index(svg[start:], "\n")]
+}
+
+// TestEveryMappedSourceIsVendored is the failure that would otherwise wait
+// until someone else ran the generator: a mapping is a line of JSON, and the
+// artwork it names has to be fetched separately and committed.
+func TestEveryMappedSourceIsVendored(t *testing.T) {
+	const root = "../.."
+
+	ic, err := loadIcons(root)
+	if err != nil {
+		t.Fatalf("loadIcons: %v", err)
+	}
+
+	names, err := ic.names()
+	if err != nil {
+		t.Fatalf("names: %v", err)
+	}
+
+	if len(names) == 0 {
+		t.Fatal("the mapping is empty")
+	}
+
+	for name, phosphor := range names {
+		if ic.sources[phosphor] == "" {
+			t.Errorf("%s maps to %s, which is not vendored", name, phosphor)
+		}
+	}
+}
+
+// TestIconsArePaintedOrDefer pins the fork, in both directions, because the two
+// halves undo each other: an icon that carries a colour and the ColorScheme
+// class would have the colour replaced at load time and look like the colour
+// had never been set. Whichever way the spec goes, only one may reach the file.
+func TestIconsArePaintedOrDefer(t *testing.T) {
+	painted := icon{Paths: []string{`<path d="M0,0"/>`}, Color: "#ebebeb", Fallback: "#e8e4dd"}.render()
+
+	if !strings.Contains(painted, `<g fill="#ebebeb"`) {
+		t.Errorf("a painted icon does not carry its colour:\n%s", painted)
+	}
+
+	for _, unwanted := range []string{"current-color-scheme", "ColorScheme-Text", "currentColor"} {
+		if strings.Contains(painted, unwanted) {
+			t.Errorf("a painted icon still defers through %s, which would overwrite it:\n%s", unwanted, painted)
+		}
+	}
+
+	// Leaving the colour out is the KDE default, and stays reachable.
+	deferred := icon{Paths: []string{`<path d="M0,0"/>`}, Fallback: "#e8e4dd"}.render()
+
+	for _, want := range []string{
+		`id="current-color-scheme"`,
+		`class="ColorScheme-Text"`,
+		`fill="currentColor"`,
+		`.ColorScheme-Text { color:#e8e4dd; }`,
+	} {
+		if !strings.Contains(deferred, want) {
+			t.Errorf("an icon with no colour of its own is missing %s:\n%s", want, deferred)
+		}
+	}
+}
+
+// TestBatteryFamilyExpands checks the rule that stands in for a hundred
+// filenames. The charging override is the interesting half: it has to beat the
+// level's icon, while a power profile changes only the name.
+func TestBatteryFamilyExpands(t *testing.T) {
+	const root = "../.."
+
+	ic, err := loadIcons(root)
+	if err != nil {
+		t.Fatalf("loadIcons: %v", err)
+	}
+
+	names, err := ic.names()
+	if err != nil {
+		t.Fatalf("names: %v", err)
+	}
+
+	for name, want := range map[string]string{
+		"status/battery-000":                            "battery-empty",
+		"status/battery-100":                            "battery-full",
+		"status/battery-050-profile-balanced":           "battery-medium",
+		"status/battery-050-charging":                   "battery-charging",
+		"status/battery-100-charging-profile-powersave": "battery-charging",
+		"status/network-wireless-0":                     "wifi-none",
+		"status/network-wireless-connected-100":         "wifi-high",
+		"status/network-wireless-60-limited":            "wifi-x",
+	} {
+		if got := names[name]; got != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+}
+
+// TestGlyphSizeIsWhatItSays checks the arithmetic between the pixels asked for
+// and the transform that delivers them. The spec names a glyph size because
+// that is the decision; everything downstream is a factor nobody should have to
+// verify by rasterising an icon and measuring it.
+func TestGlyphSizeIsWhatItSays(t *testing.T) {
+	const root = "../.."
+
+	ic, err := loadIcons(root)
+	if err != nil {
+		t.Fatalf("loadIcons: %v", err)
+	}
+
+	// What an icon filling Phosphor's grid measures once scaled, in pixels. The
+	// tolerance is what rounding the scale to three decimals can cost: half a
+	// unit in its last place, across the unscaled glyph.
+	const tolerance = 0.0005 * iconSize * iconGrid / iconBox
+
+	got := iconSize * iconGrid / iconBox * ic.glyphScale()
+	if diff := got - ic.Glyph; diff > tolerance || diff < -tolerance {
+		t.Errorf("a full glyph measures %.3fpx, want the %vpx spec/icons.json asks for", got, ic.Glyph)
+	}
+
+	// Centred: half the freed space on each side. Pinned as the rendered string
+	// because an off-centre transform still looks plausible in isolation and
+	// only shows up as icons sitting high and left in a panel.
+	svg := icon{Paths: []string{`<path d="M0,0"/>`}, Fallback: "#e8e4dd", Scale: 0.783}.render()
+
+	if want := `transform="translate(27.776,27.776) scale(0.783)"`; !strings.Contains(svg, want) {
+		t.Errorf("want %s in:\n%s", want, svg)
+	}
+
+	// An unscaled icon carries no transform at all rather than an identity one.
+	for _, scale := range []float64{0, 1} {
+		plain := icon{Paths: []string{`<path d="M0,0"/>`}, Scale: scale}.render()
+		if strings.Contains(plain, "transform") {
+			t.Errorf("scale %v should emit no transform:\n%s", scale, plain)
+		}
+	}
 }

@@ -40,24 +40,20 @@
               "name": "Neutral"
             },
             {
-              "id": "ash",
-              "name": "Ash"
-            },
-            {
               "id": "slate",
               "name": "Slate"
             },
             {
-              "id": "moss",
-              "name": "Moss"
+              "id": "plum",
+              "name": "Plum"
             },
             {
               "id": "rose",
               "name": "Rose"
             },
             {
-              "id": "plum",
-              "name": "Plum"
+              "id": "forest",
+              "name": "Forest"
             }
           ]
         },
@@ -208,6 +204,14 @@
           "target": "contents/defaults"
         }
       ]
+    },
+    {
+      "id": "icons",
+      "name": "Icons",
+      "description": "System tray, launcher and menu icons",
+      "source": "icons/VanillaBoxIconsDark",
+      "target": "icons",
+      "required": true
     }
   ]
 }

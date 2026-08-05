@@ -49,7 +49,7 @@ traffic lights. Making every value carry its own overlay keeps the option indepe
 A palette is a surface set and the accent that goes with it, chosen together. Surfaces and
 highlights were two independent axes at first, on the reasoning that they are two questions. They
 are — but a curated pair is a defensible answer to both, and eighteen combinations is a great deal
-of menu for something most people set once and never revisit. Six named variants say more about
+of menu for something most people set once and never revisit. Five named variants say more about
 what the theme is for than eighteen coordinates do.
 
 The cost is real: rose surfaces with a steel accent is no longer reachable. If that turns out to
@@ -57,13 +57,32 @@ matter the axes split again — the generator already writes a product elsewhere
 without ceremony.
 
 Accents match their surfaces in temperature, so a variant reads as one decision rather than two.
-`neutral` and `ash` are the exception and share the grey surfaces: the difference between them is
-whether anything on screen is coloured at all. Surfaces are therefore named separately from
-palettes and referenced by name, so the two cannot drift apart by an edit to one of them.
+`neutral` is the exception and takes the grey surfaces, which is what makes it the quiet one rather
+than a colour with the volume turned down. Surfaces are named separately from palettes and
+referenced by name — a set can then be shared, and renaming a variant does not mean renaming the
+colours it points at.
 
 A palette moves surfaces and its accent. Text, inactive text and the colour that sits on the
-highlight are held still across all six, because warm text on a blue surface reads as a mistake
+highlight are held still across all five, because warm text on a blue surface reads as a mistake
 rather than as a variant.
+
+`onHighlight` is the one that does not survive the rule, and `forest` is why. An accent is the
+selection background — the only colour a palette moves that text sits *on* rather than beside — and
+at `#4a6d41` the shared dark on-highlight colour reads at 2.8:1, which is not a foreground. The
+light `text` colour reads at 4.7:1 on the same green. The crossover is around `#5c8452`: above it
+the dark colour wins, below it the light one does.
+
+So a palette may override `onHighlight`, and only `forest` does. The alternative was moving the
+foregrounds for everyone, which is the question holding them still exists to avoid — and picking a
+green by what the selection text needed rather than by what the palette is called.
+`TestForestInvertsItsSelectionText` pins both halves: forest takes the light colour, and the other
+four are checked for still taking the dark one, because an override that leaked would look like a
+theme-wide change nobody asked for.
+
+The accent is also `ForegroundLink`, drawn *on* the background rather than under text, and that one
+has no override to hide behind. Forest links sit at 2.5:1 against its surfaces where the other four
+palettes are near 4.6:1. It is the price of the green: the link colour would have to stop being the
+accent to fix it, which would cost the theme the thing that makes an accent read as one decision.
 
 That also keeps a palette almost free. The only artwork it repaints is `decoration.svg`, which
 paints the titlebar directly instead of deferring to the scheme; everything else either resolves
@@ -153,9 +172,10 @@ was once deliberate — selection was `143,143,143` and the active task underlin
 `.ColorScheme-Highlight` rather than from a colour — and an accent that reached only application
 focus rings would be close to invisible in a desktop this neutral.
 
-Under the default `neutral` palette that makes the active task underline tan rather than grey. The
-`ash` palette is the one that keeps a grey highlight, and it is the only place the original
-no-colour-anywhere look survives intact.
+Under the default `neutral` palette that makes the active task underline tan rather than grey. An
+`ash` palette once held the grey `143,143,143` selection as a way of keeping the original
+no-colour-anywhere look reachable; it was dropped, because a variant whose only content is the
+absence of the accent is a menu entry explaining a decision rather than offering one.
 
 ## Buttons
 
@@ -290,6 +310,128 @@ mirrors the layout regardless) or an elementary-style desktop would expect.
 Leaving the order alone also means the KWin button letter codes never have to be verified, which is
 why that open question is now closed rather than answered.
 
+## Icons
+
+The icon theme is [Phosphor](https://phosphoricons.com)'s **light** weight, mapped onto KDE icon
+names by `spec/icons.json`. One weight throughout: mixing them is what makes an icon set look
+assembled rather than designed.
+
+The set shipped as `fill` first. Light is the outline of the same drawings, which reads quieter
+beside Breeze's own outline icons but has less to hold onto at 14 pixels — a hairline that a panel
+at fractional scaling can thin further. Changing weight is one key in `spec/icons.json` and a
+re-vendor, so this is a decision that stays cheap to revisit rather than one to get right once.
+
+The weights are not the same drawing at different thicknesses, and a few compositions change
+outright: `power` is a solid disc with a knocked-out symbol in `fill` and a bare arc in `light`, so
+it measures 12.7px where the filled one measured 14. The glyph size below is a grid reference, not
+a promise about any individual icon.
+
+**Inheritance is what makes the set possible at all.** Breeze ships nineteen thousand SVGs. Any
+attempt to replace that is a project, not a component. `index.theme` names `Inherits=breeze-dark`,
+so the sixty-odd names mapped here are the only ones this theme owes; everything else is answered
+by Breeze, including names KDE has not invented yet. The scope that follows is "icons the shell
+itself draws" — tray, launcher, kickoff categories, session actions — because those are the ones
+seen constantly and against our own panel.
+
+The boundary worth stating: application entries in the menu draw from each application's own
+`.desktop` file. Firefox stays Firefox. This theme owns the launcher button, the category rail and
+the session actions, not the app list.
+
+### The transform is a wrapper
+
+A Phosphor fill asset is one path in a 256-unit box already set to `fill="currentColor"`. A KDE
+monochrome icon is the same thing wrapped in a `current-color-scheme` stylesheet — the idiom the
+Plasma style's artwork already uses. So an icon is generated, not drawn: the source's paths lifted
+out with an XML parser and wrapped by the renderer.
+
+### The icons are painted, not recoloured
+
+This is the one place the theme opts out of the mechanism everything else depends on.
+
+An icon carrying `ColorScheme-Text` is repainted at load time in the colour scheme's text colour,
+`#e8e4dd`. `color` in `spec/icons.json` is `#ebebeb`, a colour the scheme does not contain — and
+there is no way to have both. The stylesheet *is* the request to be recoloured, so an icon with a
+colour of its own goes without one, and the generator emits `<g fill="#ebebeb">` with no stylesheet
+at all. A test checks both directions: an icon that carried the colour and the class would have the
+colour silently replaced and look like it had never been set.
+
+What that costs:
+
+- **Selected rows.** KDE paints a deferring icon in the inverted foreground when it lands on a
+  selection, the way the text beside it inverts. A painted icon stays `#ebebeb` there. In the
+  kickoff category rail — which is exactly where this theme's icons are, and which highlights on
+  hover — a light icon then sits on the accent while the label beside it goes dark.
+- **The palette.** Nothing follows a palette change any more; the colour is in the artwork.
+
+What it does not cost is the variant axis. The icons were already the same bytes for all five
+palettes, for the opposite reason: they used to resolve their colour late, and now they have none
+to resolve.
+
+Deleting `color` puts the icons back on the colour scheme, and is the whole of the way back.
+
+### Glyph size
+
+`glyph` in `spec/icons.json` is how many pixels an icon filling Phosphor's grid measures in the
+22 pixel box the tray and menus ask for. It is held in pixels rather than as a scale because the
+pixels are the decision; the generator derives the transform, and a test checks the round trip so
+nobody has to rasterise an icon to find out what they got.
+
+Two reference points sit either side of the shipped value. Phosphor unscaled measures **17.9px**:
+its artwork is inset by 24 units of 256, so it draws to 81% of its box where Breeze draws to 73%.
+Breeze itself measures **16.0px**, and Breeze is where every unmapped icon still comes from, so it
+is the size ours are seen next to.
+
+The theme ships **14px**, deliberately below both — a 4 pixel margin, quieter than the icons around
+it. That is a look rather than a match, and the tray will show the difference on any panel that
+mixes the two.
+
+In the light weight the square icons land a little under it: the grid constant is 208 units and the
+weight's own drawings sit between 172 and 212, so a magnifying glass measures 13.7px and a lock
+14.3. That spread is the artwork's, not the scale's.
+
+The scale is uniform rather than per-icon, and applied as a transform about the centre of the box
+rather than by rewriting path data — what is committed stays recognisably the vendored source with
+a wrapper around it. Normalising each icon to its own bounding box would make every glyph the same
+size, which is not what a designed set does: Phosphor's relative sizes — a magnifying glass smaller
+than a monitor — are part of why it reads as one set. So 14px is what a full-grid icon measures,
+and the ones drawn smaller stay proportionally smaller.
+
+The stylesheet is written directly under `<svg>` rather than inside a `<defs>` as the frames do.
+Both work for the Plasma style; the icon loader is a different consumer, and the format Breeze's
+own icons use is the one worth copying rather than the one that happens to match the frames.
+
+### One geometry, one directory
+
+Breeze keeps a directory per pixel size because its artwork is drawn again at each one. Phosphor is
+a single geometry, so fixed sizes would be the same path data under four different `Size=`
+headings. The theme writes one `scalable` directory per context instead, which is what the icon
+theme spec is for. If a lookup ever misses, adding fixed sizes is a loop in the generator.
+
+Every name is also written as its `-symbolic` twin. Plasma 6 asks for the symbolic name in most
+shell contexts, and a monochrome set has no second drawing to offer anyway — so the alternative to
+duplicating the file is falling through to Breeze for half the tray.
+
+### Families
+
+Breeze spells charge level and signal strength as a hundred and two battery filenames and a hundred
+and sixty-three network ones. They collapse to about a dozen pictures, and writing the collapse out
+by hand is how a mapping file goes stale. A family is a name template with a level and any number
+of slots; the generator multiplies it out. A slot alternative naming an icon overrides the level's
+— a charging battery is the same picture at every charge — and one naming null keeps it, which is
+how a power profile changes the filename without changing the artwork.
+
+Mobile broadband is deliberately unmapped: another hundred and sixty names for hardware this
+desktop does not have, and Breeze still answers them.
+
+### The sources are vendored
+
+`spec/phosphor/` holds the artwork the mapping names, committed, at the commit `icons.json` pins.
+Generation has to work offline and produce the same bytes every time, and a build that reaches the
+network does neither. `go run ./internal/gen -fetch` is the one thing in the repository that opens
+a socket, and it is run by hand when a mapping is added. A test fails if a mapping names artwork
+nobody vendored, because that failure would otherwise wait for the next person to run the
+generator.
+
 ## Transparency
 
 The toggles are per-surface:
@@ -338,19 +480,21 @@ shape select is written before the switches that draw from it.
 
 ```json
 {
-  "theme":      { "name":"Vanilla Box Dark", "version":"0.2.0", "…":"…" },
+  "theme":      { "name":"Vanilla Box Dark", "version":"0.2.0",
+                  "iconsId":"VanillaBoxIconsDark", "…":"…" },
   "foreground": { "text":"#e8e4dd", "textInactive":"#8a8782", "onHighlight":"#1f1f1f" },
 
   "surfaces": {
-    "grey":  { "background":"#292929", "elevated":"#2f2f2f", "view":"#141414", "…":"…" },
-    "slate": { "background":"#272a2f", "…":"…" },
-    "…":     "…"
+    "grey":   { "background":"#292929", "elevated":"#2f2f2f", "view":"#141414", "…":"…" },
+    "slate":  { "background":"#272a2f", "…":"…" },
+    "forest": { "background":"#252b25", "…":"…" },
+    "…":      "…"
   },
   "palettes": {
-    "neutral": { "surfaces":"grey",  "accent":"#ae8e6c" },
-    "ash":     { "surfaces":"grey",  "accent":"#8f8f8f" },
-    "slate":   { "surfaces":"slate", "accent":"#7d93ad" },
-    "…":       "…"
+    "neutral": { "surfaces":"grey",   "accent":"#ae8e6c" },
+    "slate":   { "surfaces":"slate",  "accent":"#7d93ad" },
+    "…":       "…",
+    "forest":  { "surfaces":"forest", "accent":"#4a6d41", "onHighlight":"#e8e4dd" }
   },
   "surfaceShape": {
     "rounded": { "panel":8, "popup":8, "button":6 },
@@ -376,20 +520,26 @@ tiles across four states, `tasks.svg` is five edges by six states by nine tiles 
 
 ```
 spec/
-  tokens.json               the only hand-edited variant input
+  tokens.json               the hand-edited variant input
+  icons.json                KDE icon name -> Phosphor icon, and the families
+  phosphor/                 vendored artwork, pinned by icons.json
 internal/gen/
   main.go                   which files exist at a point in the variant space
   frame.go                  panel and popup frames: nine tiles, cubic corners
   control.go                buttons, inputs and list items: stacked states, arc corners
   aurorae.go                window decoration, titlebar buttons, the two ini files
   colors.go                 KColorScheme ini from a palette and an accent
+  icons.go                  the icon theme and its index
+  fetch.go                  -fetch, the one thing here that uses the network
 assets/                     generated; committed
   variants/
-    colors/<palette>/               the two colors files      12 files
-    decoration/<palette>-<shape>/   decoration.svg            12 files
-    defaults/<palette>/             look-and-feel defaults     6 files
+    colors/<palette>/               the two colors files      10 files
+    decoration/<palette>-<shape>/   decoration.svg            10 files
+    defaults/<palette>/             look-and-feel defaults     5 files
     surfaces/<shape>/               frames and controls       30 files
     buttons/<style>/                titlebar set              10 files
+  icons/VanillaBoxIconsDark/
+    <context>/scalable/             the icon theme           433 files
 ```
 
 The emitters are Go rather than text templates. Regeneration has to be byte-for-byte against
@@ -566,7 +716,7 @@ which would break the guarantee that an option only ever chooses bytes.
 
 ## What gets installed
 
-Unchanged: one colour scheme, one Plasma style, one Aurorae theme, one look-and-feel package.
+One colour scheme, one Plasma style, one Aurorae theme, one look-and-feel package, one icon theme.
 Variants never multiply what lands in `~/.local/share`; they only decide which bytes are copied.
 Backups continue to work as described in the README.
 

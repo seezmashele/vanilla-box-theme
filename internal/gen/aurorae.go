@@ -233,13 +233,16 @@ PaddingRight=%d
 // chosen. The accent lives here, and so would a button order: Mac-style buttons
 // sit on the left, which is a KWin setting rather than anything in the Aurorae
 // theme. An empty order leaves KWin's own default in place.
-func lookAndFeelDefaults(accent, buttonsOnLeft, buttonsOnRight string) string {
+func lookAndFeelDefaults(icons, accent, buttonsOnLeft, buttonsOnRight string) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, `[kdeglobals][General]
 ColorScheme=VanillaBoxDark
 accentColorFromWallpaper=false
 AccentColor=%s
+
+[kdeglobals][Icons]
+Theme=%s
 
 [plasmarc][Theme]
 name=vanilla-box-dark
@@ -249,7 +252,7 @@ library=org.kde.kwin.aurorae.v2
 theme=__aurorae__svg__VanillaBoxDark
 BorderSize=None
 BorderSizeAuto=false
-`, rgb(accent))
+`, rgb(accent), icons)
 
 	if buttonsOnLeft != "" || buttonsOnRight != "" {
 		fmt.Fprintf(&b, "ButtonsOnLeft=%s\nButtonsOnRight=%s\n", buttonsOnLeft, buttonsOnRight)

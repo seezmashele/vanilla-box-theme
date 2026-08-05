@@ -255,11 +255,10 @@ func TestTransparencyTogglesActIndependently(t *testing.T) {
 func TestPaletteCarriesItsAccent(t *testing.T) {
 	palettes := map[string]struct{ surface, accent string }{
 		"neutral": {"41,41,41", "174,142,108"},
-		"ash":     {"41,41,41", "143,143,143"},
 		"slate":   {"39,42,47", "125,147,173"},
-		"moss":    {"39,42,39", "140,168,130"},
-		"rose":    {"43,39,39", "184,119,106"},
 		"plum":    {"43,39,45", "162,136,176"},
+		"rose":    {"43,39,41", "192,122,140"},
+		"forest":  {"37,43,37", "74,109,65"},
 	}
 
 	for name, want := range palettes {
@@ -297,28 +296,54 @@ func TestPaletteCarriesItsAccent(t *testing.T) {
 	}
 }
 
-// TestNeutralAndAshDifferOnlyInTheirAccent is the pair that makes the merged
-// axis worth having: identical surfaces, and the whole difference is whether
-// anything on screen is coloured. If the accent stopped reaching the scheme,
-// the two would become the same theme and nothing else would notice.
-func TestNeutralAndAshDifferOnlyInTheirAccent(t *testing.T) {
-	read := func(name string) string {
+// TestForestInvertsItsSelectionText is the one place a palette moves a
+// foreground. Its accent is dark enough that the shared dark on-highlight
+// colour stops reading on it, so forest alone takes the light one — and the
+// four that do not are the assertion that the override stayed local to it.
+func TestForestInvertsItsSelectionText(t *testing.T) {
+	const (
+		light = "232,228,221"
+		dark  = "31,31,31"
+	)
+
+	selection := func(name string) string {
 		_, style := installShipped(t, func(ch Choices) { ch.Values["palette"] = name })
+		colors := readFile(t, filepath.Join(style, "colors"))
 
-		return readFile(t, filepath.Join(style, "colors"))
+		_, after, ok := strings.Cut(colors, "[Colors:Selection]\n")
+		if !ok {
+			t.Fatalf("%s colors has no selection set", name)
+		}
+
+		return after
 	}
 
-	neutral, ash := read("neutral"), read("ash")
+	if got := selection("forest"); !strings.Contains(got, "ForegroundNormal="+light) {
+		t.Errorf("forest selection text is not the light foreground %s", light)
+	}
 
-	if neutral == ash {
-		t.Fatal("neutral and ash produced the same colour scheme")
+	for _, name := range []string{"neutral", "slate", "plum", "rose"} {
+		if got := selection(name); !strings.Contains(got, "ForegroundNormal="+dark) {
+			t.Errorf("%s selection text is not the shared dark foreground %s", name, dark)
+		}
 	}
-	if !strings.Contains(neutral, "BackgroundNormal=41,41,41") ||
-		!strings.Contains(ash, "BackgroundNormal=41,41,41") {
-		t.Error("neutral and ash should share the grey surfaces")
-	}
-	if !strings.Contains(ash, "[Colors:Selection]\nBackgroundAlternate=143,143,143") {
-		t.Error("ash should have no colour anywhere, including its selection")
+}
+
+// TestPalettesAreDistinct is the cheap guard the merged axis needs: five names
+// in the menu have to be five colour schemes. A palette that stopped reaching
+// the scheme would silently fall back to another one's colours, and the option
+// would still appear to work.
+func TestPalettesAreDistinct(t *testing.T) {
+	seen := map[string]string{}
+
+	for _, name := range []string{"neutral", "slate", "plum", "rose", "forest"} {
+		_, style := installShipped(t, func(ch Choices) { ch.Values["palette"] = name })
+		colors := readFile(t, filepath.Join(style, "colors"))
+
+		if other, ok := seen[colors]; ok {
+			t.Errorf("%s and %s produced the same colour scheme", other, name)
+		}
+		seen[colors] = name
 	}
 }
 
@@ -662,4 +687,71 @@ func readFile(t *testing.T, path string) string {
 	}
 
 	return string(data)
+}
+
+// componentByID finds a component the way a test should: by what it is rather
+// than by where it sits in the manifest, so adding one does not renumber the
+// assertions of every other.
+func componentByID(t *testing.T, theme *Theme, id string) Component {
+	t.Helper()
+
+	for _, c := range theme.Components {
+		if c.ID == id {
+			return c
+		}
+	}
+
+	t.Fatalf("no %q component in the manifest", id)
+
+	return Component{}
+}
+
+// TestIconsInstallAndInheritBreeze covers the line the whole icon theme rests
+// on. It maps a few dozen names out of the tens of thousands KDE can ask for,
+// so Inherits is what decides whether an unmapped icon is a Breeze icon or a
+// missing-image square.
+func TestIconsInstallAndInheritBreeze(t *testing.T) {
+	theme, _ := installShipped(t, nil)
+
+	icons := theme.TargetPath(componentByID(t, theme, "icons"))
+
+	if base := filepath.Base(icons); base != "VanillaBoxIconsDark" {
+		t.Errorf("icons installed to %s, want a VanillaBoxIconsDark directory", icons)
+	}
+
+	index := readFile(t, filepath.Join(icons, "index.theme"))
+
+	if !strings.Contains(index, "Inherits=breeze-dark") {
+		t.Errorf("index.theme does not inherit breeze-dark:\n%s", index)
+	}
+	if !strings.Contains(index, "Name=Vanilla Box Icons Dark") {
+		t.Error("index.theme does not name the icon theme")
+	}
+
+	// One from the mapping and one from a family, because the two reach the
+	// tree by different code paths.
+	for _, rel := range []string{
+		"actions/scalable/system-shutdown.svg",
+		"status/scalable/battery-050-charging.svg",
+		"status/scalable/battery-050-charging-symbolic.svg",
+	} {
+		body := readFile(t, filepath.Join(icons, filepath.FromSlash(rel)))
+		if !strings.Contains(body, `fill="#ebebeb"`) {
+			t.Errorf("%s is not painted the icon colour", rel)
+		}
+	}
+}
+
+// TestGlobalThemeAppliesTheIcons is the other half: the files being installed
+// is not the same as Plasma using them, and the look-and-feel defaults are what
+// switch the icon theme when the global theme is picked.
+func TestGlobalThemeAppliesTheIcons(t *testing.T) {
+	theme, _ := installShipped(t, nil)
+
+	defaults := readFile(t, filepath.Join(
+		theme.TargetPath(componentByID(t, theme, "global-theme")), "contents", "defaults"))
+
+	if !strings.Contains(defaults, "[kdeglobals][Icons]\nTheme=VanillaBoxIconsDark") {
+		t.Errorf("the global theme does not switch to the icon theme:\n%s", defaults)
+	}
 }

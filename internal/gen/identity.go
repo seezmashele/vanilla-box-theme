@@ -10,11 +10,16 @@ type identity struct {
 	StyleID       string `json:"styleId"`
 	LookAndFeelID string `json:"lookAndFeelId"`
 	AuroraeID     string `json:"auroraeId"`
-	Version       string `json:"version"`
-	Author        string `json:"author"`
-	Email         string `json:"email"`
-	License       string `json:"license"`
-	Description   string `json:"description"`
+
+	// The icon theme wants both: the directory it installs into, which is what
+	// kdeglobals names, and the display name System Settings lists it under.
+	IconsID     string `json:"iconsId"`
+	IconsName   string `json:"iconsName"`
+	Version     string `json:"version"`
+	Author      string `json:"author"`
+	Email       string `json:"email"`
+	License     string `json:"license"`
+	Description string `json:"description"`
 }
 
 // kPluginMetadata renders the KPlugin block both Plasma packages use, differing

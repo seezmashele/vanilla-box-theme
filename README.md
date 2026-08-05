@@ -74,7 +74,7 @@ to that file, not to the code:
 
 `source` is relative to the asset directory; `target` is relative to `~/.local/share`.
 
-All four are marked `required`, so all four install and there is nothing to pick between:
+All five are marked `required`, so all five install and there is nothing to pick between:
 
 | Component | Installs to |
 | --- | --- |
@@ -82,6 +82,7 @@ All four are marked `required`, so all four install and there is nothing to pick
 | Plasma style | `plasma/desktoptheme/vanilla-box-dark/` |
 | Window decoration | `aurorae/themes/VanillaBoxDark/` |
 | Global theme | `plasma/look-and-feel/org.vanillabox.dark/` |
+| Icons | `icons/VanillaBoxIconsDark/` |
 
 A component whose `source` is missing — or is an empty file or directory — is skipped rather than
 failing the run, and the review screen lists it as `unavailable, will be skipped`. To see that,
@@ -110,7 +111,7 @@ adding an option means saying where it belongs rather than editing a screen.
 
 | Preference | Values | Changes |
 | --- | --- | --- |
-| Colour | Neutral, Ash, Slate, Moss, Rose, Plum | surfaces **and** the accent that goes with them |
+| Colour | Neutral, Slate, Plum, Rose, Forest | surfaces **and** the accent that goes with them |
 | Corners | Square, Rounded | panels, popups, buttons, inputs, list items |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |
 | Window buttons | Traffic lights, Symbols | close, minimise and maximise |
@@ -122,9 +123,9 @@ Every default is the first value listed, so accepting each prompt installs Neutr
 throughout and traffic-light buttons — a theme with no rounded corners anywhere.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
-their surfaces in temperature, so each variant reads as one decision. Neutral and Ash share the
-same grey surfaces and differ only in whether anything on screen is coloured: Neutral has a warm
-tan accent, Ash has none.
+their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of
+them — grey surfaces under a warm tan accent — and the tinted four each carry the tint through the
+surfaces, the selection colour and the titlebar alike.
 
 Everything the theme ships is installed. There is no component checklist: choosing a colour is
 already choosing a colour scheme, and the rest of the theme is what makes that colour mean
@@ -160,21 +161,58 @@ it or reads it through a variant path. The step is skipped entirely when nothing
 
 ## Generated files
 
-Most of `assets/` is written from `spec/tokens.json`:
+Most of `assets/` is written from `spec/tokens.json` and `spec/icons.json`:
 
 ```sh
 go generate ./...
 ```
 
-Adding a colour is an edit to that file — a surface set if it needs a new one, a palette pairing it
-with an accent, plus the matching value in `theme.json` so the installer offers it. The version and
-the theme's identity live there too, and are written into the three KDE metadata files and the
+Adding a colour is an edit to the tokens — a surface set if it needs a new one, a palette pairing
+it with an accent, plus the matching value in `theme.json` so the installer offers it. The version
+and the theme's identity live there too, and are written into the three KDE metadata files and the
 installer's own const.
 
-`go test ./internal/gen` fails if the committed assets and the tokens have drifted apart, and CI
-runs `go generate` and fails on a dirty tree. Anything under `assets/variants/` the generator no
-longer produces is deleted rather than left behind. See [DESIGN.md](DESIGN.md) for what is
-generated and what is not.
+`go test ./internal/gen` fails if the committed assets and the spec have drifted apart, and CI
+runs `go generate` and fails on a dirty tree. Anything under `assets/variants/` or `assets/icons/`
+the generator no longer produces is deleted rather than left behind. See [DESIGN.md](DESIGN.md)
+for what is generated and what is not.
+
+## Icons
+
+The icon theme is built from [Phosphor](https://phosphoricons.com) (MIT) in the **light** weight.
+`spec/icons.json` maps a KDE icon name to the Phosphor icon that answers it, and the artwork
+itself is vendored under `spec/phosphor/` at the commit that file pins.
+
+Adding an icon is two steps:
+
+```sh
+$EDITOR spec/icons.json                 # "status/network-vpn": "shield"
+go run ./internal/gen -fetch            # vendor anything newly named
+go generate ./...
+```
+
+`-fetch` is the only part that touches the network, and it is never run by `go generate`: a build
+has to work offline and produce the same bytes every time.
+
+`color` is the colour they are painted, `#ebebeb`. It is the one thing in the theme that does not
+follow the colour scheme: an icon that defers is repainted in the scheme's text colour, so having
+a colour of its own means not deferring. Remove the key and the icons follow the scheme again.
+
+`glyph` in the same file is the size in pixels, measured in the standard 22px box: the shipped
+`14` gives a 14.0px icon with a 4px margin. For scale, Phosphor unscaled is 17.9px and Breeze —
+where every unmapped icon still comes from — is 16.0px, so ours are deliberately the quieter of
+the two on a panel showing both.
+
+Only the icons the shell draws are mapped — tray, launcher, kickoff categories, session actions —
+and `index.theme` inherits `breeze-dark` for everything else, which is most things. Application
+icons in the menu come from each application's own `.desktop` file and are not ours to change.
+
+KDE caches icon lookups, so a reinstall may keep showing the old set until the cache is rebuilt:
+
+```sh
+kbuildsycoca6 --noincremental
+/usr/libexec/plasma-changeicons VanillaBoxIconsDark
+```
 
 ## Applying a decoration change
 
@@ -200,7 +238,9 @@ beside the real thing would show up in System Settings as a second theme.
 
 ```
 main.go                     flags, asset-dir resolution, program startup
-spec/tokens.json            the only hand-edited input to the generated artwork
+spec/tokens.json            the hand-edited input to the generated artwork
+spec/icons.json             KDE icon name -> Phosphor icon, and the families
+spec/phosphor/              vendored Phosphor sources, pinned by icons.json
 internal/theme/
   manifest.go               Theme, Component, Option and Choices, LoadManifest
   availability.go           whether each component's files are actually present
@@ -212,6 +252,8 @@ internal/gen/               go generate ./... -> assets/
   control.go                buttons, inputs and list items
   aurorae.go                window decoration and titlebar buttons
   colors.go                 colour schemes
+  icons.go                  the icon theme and its index
+  fetch.go                  -fetch, which vendors the Phosphor sources
   identity.go               the metadata KDE wants in three formats
 internal/ui/
   model.go                  root model, screen state machine, install plumbing
@@ -220,6 +262,7 @@ internal/ui/
   screen_*.go               the five screens plus the error view
 assets/                     theme.json and the theme's files
   variants/                 the alternatives each preference picks from
+  icons/                    the icon theme, one scalable dir per context
 ```
 
 ## Tests

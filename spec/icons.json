@@ -1,0 +1,174 @@
+{
+  "_comment": "The hand-edited half of the icon theme: which Phosphor icon answers which KDE icon name. The other half is spec/phosphor/, which is vendored artwork nobody edits. See DESIGN.md.",
+  "_source": "Pinned by commit rather than by branch so that re-vendoring a source years from now produces the same artwork. weight is the Phosphor weight every icon is taken from; mixing weights inside one theme is what makes an icon set look assembled rather than designed.",
+  "source": {
+    "repo": "phosphor-icons/core",
+    "ref": "2b75f3ad12b420c9504ef05df8d2564a28f8500e",
+    "weight": "light",
+    "license": "MIT"
+  },
+  "_color": "The colour the icons are painted, which is the one thing here that does not defer to the colour scheme. An icon carrying KDE's ColorScheme-Text class is repainted at load time in the scheme's text colour, so a colour of its own is only reachable by dropping the class and stating the fill — which is what this key does. Leave it out and the icons go back to following the scheme. The cost is that they no longer follow anything: not a palette, and not the inverted foreground KDE paints an icon with when it lands on a selected row.",
+  "color": "#ebebeb",
+  "_glyph": "How many pixels an icon that fills Phosphor's grid measures in the 22 pixel box, which is the size the tray and the menus ask for. It is written in pixels because that is the thing being decided; the generator turns it into the scale that produces it. Two reference points: Phosphor unscaled measures 17.9, and Breeze — the theme every unmapped icon still comes from — measures 16. Below that, ours read as the smaller set on a panel showing both. Icons drawn inside Phosphor's grid rather than filling it stay proportionally smaller, because the relative sizes are part of why the set looks like a set.",
+  "glyph": 14,
+  "_icons": "Keyed by the KDE icon name, qualified by the context directory it belongs in, because the same name can mean different things in two contexts. Everything not named here is answered by breeze-dark through Inherits — that is the whole reason this file is a page rather than a phone book.",
+  "icons": {
+    "places/start-here": "squares-four",
+    "places/start-here-kde": "squares-four",
+    "places/start-here-kde-plasma": "squares-four",
+
+    "status/audio-volume-high": "speaker-high",
+    "status/audio-volume-medium": "speaker-low",
+    "status/audio-volume-low": "speaker-none",
+    "status/audio-volume-muted": "speaker-x",
+    "status/audio-on": "speaker-high",
+    "status/audio-off": "speaker-x",
+    "status/microphone-sensitivity-high": "microphone",
+    "status/microphone-sensitivity-medium": "microphone",
+    "status/microphone-sensitivity-low": "microphone",
+    "status/microphone-sensitivity-muted": "microphone-slash",
+
+    "status/media-playback-playing": "play",
+    "status/media-playback-paused": "pause",
+    "status/media-playback-stopped": "stop",
+
+    "status/battery-full": "battery-full",
+    "status/battery-good": "battery-high",
+    "status/battery-low": "battery-low",
+    "status/battery-caution": "battery-warning",
+    "status/battery-empty": "battery-empty",
+    "status/battery-missing": "battery-warning",
+    "status/battery-full-charging": "battery-charging",
+    "status/battery-good-charging": "battery-charging",
+    "status/battery-low-charging": "battery-charging",
+    "status/battery-caution-charging": "battery-charging",
+    "status/battery-empty-charging": "battery-charging",
+    "status/battery-profile-balanced": "battery-full",
+    "status/battery-profile-performance": "battery-full",
+    "status/battery-profile-powersave": "battery-full",
+
+    "status/network-offline": "wifi-slash",
+    "status/network-limited": "wifi-x",
+    "status/network-wired": "network",
+    "status/network-wired-activated": "network",
+    "status/network-wired-available": "network",
+    "status/network-wired-disconnected": "wifi-slash",
+    "status/network-wired-unavailable": "wifi-slash",
+    "status/network-wireless-on": "wifi-high",
+    "status/network-wireless-off": "wifi-slash",
+    "status/network-wireless-available": "wifi-high",
+    "status/network-wireless-acquiring": "wifi-medium",
+    "status/network-wireless-disconnected": "wifi-none",
+    "status/network-wireless-signal-none": "wifi-none",
+    "status/network-wireless-signal-weak": "wifi-low",
+    "status/network-wireless-signal-ok": "wifi-medium",
+    "status/network-wireless-signal-good": "wifi-high",
+    "status/network-wireless-signal-excellent": "wifi-high",
+    "status/network-bluetooth-activated": "bluetooth-connected",
+    "status/network-flightmode-on": "airplane-tilt",
+    "status/network-flightmode-off": "wifi-high",
+    "status/network-vpn": "shield",
+
+    "status/user-available": "user",
+    "status/user-away": "user",
+    "status/user-away-extended": "user",
+    "status/user-busy": "user",
+    "status/user-offline": "user",
+
+    "status/update-none": "arrow-clockwise",
+    "status/update-low": "arrow-clockwise",
+    "status/update-medium": "arrow-clockwise",
+    "status/update-high": "arrow-clockwise",
+    "status/system-software-update": "cloud-arrow-down",
+
+    "categories/applications-all": "squares-four",
+    "categories/applications-accessories": "toolbox",
+    "categories/applications-development": "code",
+    "categories/applications-education": "graduation-cap",
+    "categories/applications-engineering": "wrench",
+    "categories/applications-games": "game-controller",
+    "categories/applications-graphics": "palette",
+    "categories/applications-internet": "globe",
+    "categories/applications-multimedia": "film-slate",
+    "categories/applications-network": "network",
+    "categories/applications-office": "briefcase",
+    "categories/applications-science": "flask",
+    "categories/applications-system": "gear",
+    "categories/applications-utilities": "wrench",
+    "categories/applications-other": "dots-three",
+
+    "actions/system-shutdown": "power",
+    "actions/system-reboot": "arrow-clockwise",
+    "actions/system-log-out": "sign-out",
+    "actions/system-lock-screen": "lock",
+    "actions/system-suspend": "moon",
+    "actions/system-hibernate": "moon",
+    "actions/system-suspend-hibernate": "moon",
+    "actions/system-switch-user": "users",
+    "actions/system-search": "magnifying-glass",
+    "actions/system-run": "terminal",
+    "actions/edit-paste": "clipboard",
+
+    "apps/preferences-system-bluetooth": "bluetooth",
+    "apps/preferences-desktop-notification": "bell",
+    "apps/klipper": "clipboard",
+
+    "devices/printer": "printer",
+    "devices/input-keyboard": "keyboard"
+  },
+  "_families": "Breeze spells signal strength and charge level as a hundred-odd separate filenames. Writing those out by hand is how a mapping file goes stale, so a family is a name template with a level and any number of slots, and the generator multiplies it out. A slot alternative naming an icon overrides the level's — charging is the same picture whatever the charge — and one naming null keeps it, which is how a power profile changes the filename without changing the artwork. Mobile broadband is deliberately absent: it is another 160 names for hardware this theme's desktop does not have, and breeze-dark still answers them.",
+  "families": [
+    {
+      "context": "status",
+      "name": "battery-{level}{charging}{profile}",
+      "levels": {
+        "000": "battery-empty",
+        "010": "battery-low",
+        "020": "battery-low",
+        "030": "battery-low",
+        "040": "battery-medium",
+        "050": "battery-medium",
+        "060": "battery-medium",
+        "070": "battery-high",
+        "080": "battery-high",
+        "090": "battery-high",
+        "100": "battery-full"
+      },
+      "slots": {
+        "charging": {
+          "": null,
+          "-charging": "battery-charging"
+        },
+        "profile": {
+          "": null,
+          "-profile-balanced": null,
+          "-profile-performance": null,
+          "-profile-powersave": null
+        }
+      }
+    },
+    {
+      "context": "status",
+      "name": "network-wireless-{connected}{level}{state}",
+      "levels": {
+        "0": "wifi-none",
+        "20": "wifi-low",
+        "40": "wifi-medium",
+        "60": "wifi-high",
+        "80": "wifi-high",
+        "100": "wifi-high"
+      },
+      "slots": {
+        "connected": {
+          "": null,
+          "connected-": null
+        },
+        "state": {
+          "": null,
+          "-limited": "wifi-x",
+          "-locked": null
+        }
+      }
+    }
+  ]
+}
