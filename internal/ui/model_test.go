@@ -48,7 +48,7 @@ func testTheme(t *testing.T) *theme.Theme {
 				Options: []theme.Option{
 					{
 						ID: "transparency", Name: "Transparency", Kind: theme.KindToggle,
-						Default: true,
+						Group: "Options", Default: true,
 						OverlayWhenOff: theme.Overlay{
 							From:  "style/opaque",
 							Files: []string{"widgets/panel.svg"},
@@ -56,7 +56,7 @@ func testTheme(t *testing.T) *theme.Theme {
 					},
 					{
 						ID: "tint", Name: "Colour", Kind: theme.KindSelect,
-						DefaultValue: "neutral",
+						Group: "Options", DefaultValue: "neutral",
 						Values: []theme.OptionValue{
 							{ID: "neutral", Name: "Neutral"},
 							{ID: "slate", Name: "Slate"},
@@ -154,8 +154,8 @@ func TestPreferencesIsTheFirstScreen(t *testing.T) {
 	if strings.Contains(view, "Choose what to install") {
 		t.Error("the component checklist should be gone")
 	}
-	if !strings.Contains(view, "Preferences") {
-		t.Error("the first screen should be the preferences")
+	if !strings.Contains(view, "Step 1 of") {
+		t.Error("the first screen should be the first page of preferences")
 	}
 }
 
@@ -259,6 +259,90 @@ func TestShortTerminalScrolls(t *testing.T) {
 
 	if !strings.Contains(renderView(m), "below") && !strings.Contains(renderView(m), "above") {
 		t.Error("a clipped list should say how much is off screen")
+	}
+}
+
+// pagedTheme asks its two preferences on two pages, the way the real manifest
+// does, so the walk between them is covered without every other test having to
+// navigate.
+func pagedTheme(t *testing.T) *theme.Theme {
+	th := testTheme(t)
+	th.Components[1].Options[0].Group = "Switches" // transparency
+	th.Components[1].Options[1].Group = "Colour"   // tint
+
+	return th
+}
+
+// TestPagesFollowTheirGroups covers the split: a page per group, in the order
+// the groups first appear, with enter and esc walking between them.
+func TestPagesFollowTheirGroups(t *testing.T) {
+	m := New(pagedTheme(t))
+
+	// Page order follows the order the options become visible, not the order
+	// they sit in one component: the colour scheme reads the tint through a
+	// resolved path, so Colour is reached first.
+	if got := m.pages(); len(got) != 2 || got[0] != "Colour" || got[1] != "Switches" {
+		t.Fatalf("pages = %v, want [Colour Switches]", got)
+	}
+
+	if view := renderView(m); !strings.Contains(view, "Step 1 of 2") {
+		t.Error("a page should say where in the sequence it sits")
+	}
+	if m.keys.Back.Enabled() {
+		t.Error("esc should be disabled on the first page")
+	}
+
+	if view := renderView(m); !strings.Contains(view, "Neutral") {
+		t.Error("the first page should show the colour values")
+	}
+
+	m, _ = send(m, "enter")
+	if m.page != 1 {
+		t.Fatalf("page = %d, want 1 after enter", m.page)
+	}
+
+	view := renderView(m)
+	if !strings.Contains(view, "Transparency") {
+		t.Error("the second page should show its own options")
+	}
+	if strings.Contains(view, "Neutral") {
+		t.Error("the second page should not show the first page's options")
+	}
+
+	// esc walks back rather than leaving the preferences.
+	m, _ = send(m, "esc")
+	if m.page != 0 || m.screen != screenOptions {
+		t.Errorf("page = %d screen = %v, want to step back to page 0", m.page, m.screen)
+	}
+
+	// And enter off the end reaches the review.
+	m, _ = send(m, "enter", "enter")
+	if m.screen != screenConfirm {
+		t.Errorf("screen = %v, want screenConfirm past the last page", m.screen)
+	}
+
+	// Back from the review lands on the last question asked, not the first.
+	m, _ = send(m, "esc")
+	if m.page != 1 {
+		t.Errorf("page = %d after esc from the review, want the last page", m.page)
+	}
+}
+
+// TestSingleQuestionPageDropsTheHeader keeps a page from saying the same thing
+// twice: the heading already names the choice.
+func TestSingleQuestionPageDropsTheHeader(t *testing.T) {
+	m := New(pagedTheme(t))
+	m.theme.Components[1].Options[1].Description = "surfaces and highlight"
+
+	// Page one asks only for a colour, so the heading carries the question.
+	for _, r := range m.optionRows() {
+		if r.kind == rowHeader {
+			t.Error("a page asking a single choice should not repeat it as a header")
+		}
+	}
+
+	if view := renderView(m); !strings.Contains(view, "Step 1 of 2 · surfaces and highlight") {
+		t.Errorf("the option's description should move into the subtitle, got:\n%s", view)
 	}
 }
 

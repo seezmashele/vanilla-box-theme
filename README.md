@@ -95,10 +95,20 @@ point the installer at a partial tree:
 
 ## Preferences
 
-The preferences are the first and only thing to decide. Seven ship — four choices and three
-switches — and every value of every choice is listed under it, so the alternatives are visible
-without operating anything. On a short terminal the list scrolls, marking how much sits above and
-below.
+The preferences are the only thing to decide, and they are asked over three pages:
+
+| Page | Asks |
+| --- | --- |
+| Colour | the palette |
+| Shape | corners, titlebar corners, window buttons |
+| Transparency | the three switches |
+
+`enter` moves to the next page and, from the last, to the review; `esc` steps back. Every value of
+every choice is listed under it, so the alternatives are visible without operating anything. On a
+short terminal a page scrolls, marking how much sits above and below.
+
+Which page a preference appears on is `"group"` in `theme.json`, not something the UI decides, so
+adding an option means saying where it belongs rather than editing a screen.
 
 | Preference | Values | Changes |
 | --- | --- | --- |

@@ -31,6 +31,7 @@
           "id": "palette",
           "name": "Colour",
           "description": "Surfaces and the accent that goes with them",
+          "group": "Colour",
           "kind": "select",
           "defaultValue": "neutral",
           "values": [
@@ -64,6 +65,7 @@
           "id": "surfaces",
           "name": "Corners",
           "description": "Panels, popups, buttons and list items",
+          "group": "Shape",
           "kind": "select",
           "defaultValue": "square",
           "values": [
@@ -87,6 +89,7 @@
           "id": "transparency-panel",
           "name": "Translucent panel",
           "description": "The panel strip",
+          "group": "Transparency",
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
@@ -100,6 +103,7 @@
           "id": "transparency-popups",
           "name": "Translucent popups & menus",
           "description": "Launcher and system tray popups",
+          "group": "Transparency",
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
@@ -113,6 +117,7 @@
           "id": "transparency-applets",
           "name": "Translucent applets",
           "description": "Plasmoid content areas",
+          "group": "Transparency",
           "kind": "toggle",
           "default": true,
           "overlayWhenOff": {
@@ -142,6 +147,7 @@
           "id": "titlebar",
           "name": "Titlebar corners",
           "description": "Top corners of the window frame",
+          "group": "Shape",
           "kind": "select",
           "defaultValue": "square",
           "values": [
@@ -159,6 +165,7 @@
           "id": "buttons",
           "name": "Window buttons",
           "description": "Close, minimise and maximise",
+          "group": "Shape",
           "kind": "select",
           "defaultValue": "windows",
           "values": [

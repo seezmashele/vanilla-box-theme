@@ -397,6 +397,22 @@ A component whose files are missing is skipped rather than failing the run, and 
 names it. That was the greyed-out checklist row's job, and the review is now the only place left to
 say it.
 
+### One question at a time
+
+Preferences are asked over pages rather than on one screen: colour, then shape, then transparency.
+Each option declares its `group` in the manifest, and the pages are the distinct groups in the
+order they first become visible.
+
+That order is worth knowing: it follows `visibleOptions`, which walks components, not the order
+options sit inside one of them. The palette is declared on the Plasma style but reached first
+through the colour scheme's resolved path, so Colour leads. A page whose group appears in two
+components — Shape, which spans the Plasma style and the decoration — still renders as one page,
+because grouping is by name rather than by run.
+
+A page asking a single choice drops that choice's header row, since the page heading already names
+it, and moves its description into the subtitle beside the step counter. Otherwise the screen says
+"Colour" twice.
+
 ### Choices are lists, not controls
 
 A choice renders as a header with one row per value, `(•)` on the chosen one. The alternative — a

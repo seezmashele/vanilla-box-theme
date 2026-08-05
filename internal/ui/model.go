@@ -71,6 +71,9 @@ type Model struct {
 	optionCursor int
 	optionScroll int
 
+	// page is which group of preferences is on screen.
+	page int
+
 	// finishing means the last step is done and we are letting the progress bar
 	// animate up to 100% before moving on.
 	finishing bool
@@ -267,11 +270,35 @@ func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.chooseAtCursor()
 
 	case key.Matches(msg, m.keys.Confirm):
-		m.screen = screenConfirm
-		m.updateBindings()
+		m.turnPage(1)
+
+	case key.Matches(msg, m.keys.Back):
+		m.turnPage(-1)
 	}
 
 	return m, nil
+}
+
+// turnPage moves between preference pages, and off either end into the review
+// screen or nothing. The cursor restarts at the top of each page rather than
+// being carried across, since a row index means something different on each.
+func (m *Model) turnPage(delta int) {
+	next := m.page + delta
+
+	switch {
+	case next < 0:
+		return
+
+	case next >= len(m.pages()):
+		m.screen = screenConfirm
+
+	default:
+		m.page = next
+		m.optionCursor = m.firstOptionRow()
+		m.optionScroll = 0
+	}
+
+	m.updateBindings()
 }
 
 // chooseAtCursor acts on the row under the cursor: picking a value replaces
@@ -294,7 +321,11 @@ func (m *Model) chooseAtCursor() {
 func (m Model) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
+		// Back from the review lands on the last question asked, not the first.
 		m.screen = screenOptions
+		m.page = max(len(m.pages())-1, 0)
+		m.optionCursor = m.firstOptionRow()
+		m.optionScroll = 0
 		m.updateBindings()
 
 		return m, nil
@@ -377,6 +408,7 @@ func (m Model) restart() (tea.Model, tea.Cmd) {
 
 	m.queue = nil
 	m.screen = screenOptions
+	m.page = 0
 	m.optionCursor = m.firstOptionRow()
 	m.optionScroll = 0
 	m.updateBindings()
@@ -415,7 +447,7 @@ func (m *Model) updateBindings() {
 	m.keys.Confirm.SetEnabled(choosing)
 
 	m.keys.Install.SetEnabled(m.screen == screenConfirm)
-	m.keys.Back.SetEnabled(m.screen == screenConfirm)
+	m.keys.Back.SetEnabled(m.screen == screenConfirm || (choosing && m.page > 0))
 	m.keys.Restart.SetEnabled(m.screen == screenDone)
 	m.keys.Quit.SetEnabled(m.screen != screenInstall)
 }

@@ -99,6 +99,12 @@ type Option struct {
 	Description string     `json:"description"`
 	Kind        OptionKind `json:"kind"`
 
+	// Group is the page this option is asked on. Options sharing a group are
+	// shown together, and the pages run in the order their groups first appear.
+	// It lives in the manifest rather than the UI so that adding an option means
+	// saying where it belongs, not editing a screen.
+	Group string `json:"group"`
+
 	// Default is a toggle's starting state.
 	Default bool `json:"default"`
 

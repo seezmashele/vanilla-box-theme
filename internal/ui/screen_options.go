@@ -12,9 +12,16 @@ import (
 func (m Model) optionsView() string {
 	var b strings.Builder
 
-	b.WriteString(m.heading("Preferences"))
+	pages := m.pages()
+	title, step := "Preferences", ""
+	if m.page < len(pages) {
+		title = pages[m.page]
+		step = fmt.Sprintf("Step %d of %d", m.page+1, len(pages))
+	}
+
+	b.WriteString(m.heading(title))
 	b.WriteString("\n")
-	b.WriteString(m.styles.subtitle.Render("How the theme's files should be written"))
+	b.WriteString(m.styles.subtitle.Render(m.pageSubtitle(step)))
 	b.WriteString("\n\n")
 
 	rows := m.optionRows()
@@ -46,6 +53,21 @@ func (m Model) optionsView() string {
 	}
 
 	return b.String()
+}
+
+// pageSubtitle says where in the sequence this page sits, and on a page asking
+// a single question carries that question's description — which would otherwise
+// be lost with the header row the page heading replaces.
+func (m Model) pageSubtitle(step string) string {
+	if step == "" {
+		return "How the theme's files should be written"
+	}
+
+	if options := m.pageOptions(); len(options) == 1 && options[0].Description != "" {
+		return step + " · " + options[0].Description
+	}
+
+	return step
 }
 
 func (m Model) renderRow(i int, row optionRow) string {

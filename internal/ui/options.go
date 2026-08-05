@@ -29,21 +29,66 @@ type optionRow struct {
 	value  theme.OptionValue
 }
 
-// optionRows flattens the visible preferences into the lines that render.
+// pages are the groups the preferences are asked in, in the order their groups
+// first appear among the visible options.
+func (m Model) pages() []string {
+	var names []string
+
+	seen := map[string]bool{}
+	for _, o := range m.visibleOptions() {
+		if seen[o.Group] {
+			continue
+		}
+
+		seen[o.Group] = true
+		names = append(names, o.Group)
+	}
+
+	return names
+}
+
+// pageOptions are the preferences asked on the current page. An option's group
+// need not be contiguous in the manifest — the palette and the titlebar belong
+// to different components — so this gathers by name rather than by run.
+func (m Model) pageOptions() []theme.Option {
+	names := m.pages()
+	if m.page >= len(names) {
+		return nil
+	}
+
+	var out []theme.Option
+	for _, o := range m.visibleOptions() {
+		if o.Group == names[m.page] {
+			out = append(out, o)
+		}
+	}
+
+	return out
+}
+
+// optionRows flattens the current page's preferences into the lines that render.
 func (m Model) optionRows() []optionRow {
 	var rows []optionRow
 
-	for _, o := range m.visibleOptions() {
+	options := m.pageOptions()
+
+	// A page asking one question does not need to repeat it: the heading already
+	// names the choice, so its values stand alone.
+	bare := len(options) == 1 && options[0].Kind == theme.KindSelect
+
+	for _, o := range options {
 		if o.Kind != theme.KindSelect {
 			rows = append(rows, optionRow{kind: rowToggle, option: o})
 
 			continue
 		}
 
-		if len(rows) > 0 {
-			rows = append(rows, optionRow{kind: rowSpacer})
+		if !bare {
+			if len(rows) > 0 {
+				rows = append(rows, optionRow{kind: rowSpacer})
+			}
+			rows = append(rows, optionRow{kind: rowHeader, option: o})
 		}
-		rows = append(rows, optionRow{kind: rowHeader, option: o})
 		for _, v := range o.Values {
 			rows = append(rows, optionRow{kind: rowValue, option: o, value: v})
 		}
