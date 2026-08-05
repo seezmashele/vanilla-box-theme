@@ -446,7 +446,7 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 			// the titlebar, so the hover plate has no gap above it.
 			width, margin := "ButtonWidth=28", "ButtonMarginTop=0"
 			if circles {
-				width, margin = "ButtonWidth=20", "ButtonMarginTop=4"
+				width, margin = "ButtonWidth=22", "ButtonMarginTop=3"
 			}
 			if !strings.Contains(rc, width) {
 				t.Errorf("the layout file does not carry the %s metrics (%s)", style, width)
@@ -456,6 +456,59 @@ func TestButtonStyleSwapsTheWholeTitlebarSet(t *testing.T) {
 			// it in the titlebar or a short button rides high.
 			if !strings.Contains(rc, margin) {
 				t.Errorf("%s buttons are not centred in the titlebar (want %s)", style, margin)
+			}
+		})
+	}
+}
+
+// TestTitlebarButtonMetrics pins the numbers that were tuned by eye against a
+// real titlebar. Nothing else in the suite would notice them drifting: the
+// artwork would still be valid, the theme would still install, and the buttons
+// would just be the wrong size or sitting a pixel off. See DESIGN.md.
+func TestTitlebarButtonMetrics(t *testing.T) {
+	metrics := map[string]struct {
+		box, margin int
+		mark        string // what the artwork must draw at that size
+	}{
+		// 13x13px symbol on a 28x28 box, flush with the top of the titlebar so
+		// the hover plate has no gap above it.
+		"windows": {box: 28, margin: 0, mark: `scale(0.04352678571428571)`},
+		// 11px circle on a 22x22 box, a pixel above centre.
+		"mac": {box: 22, margin: 3, mark: `<circle cx="12" cy="12" r="6"`},
+	}
+
+	for style, want := range metrics {
+		t.Run(style, func(t *testing.T) {
+			theme, _ := installShipped(t, func(ch Choices) {
+				ch.Values["buttons"] = style
+			})
+			dst := theme.TargetPath(theme.Components[2])
+
+			rc := readFile(t, filepath.Join(dst, "VanillaBoxDarkrc"))
+			for _, line := range []string{
+				fmt.Sprintf("ButtonWidth=%d", want.box),
+				fmt.Sprintf("ButtonHeight=%d", want.box),
+				fmt.Sprintf("ButtonMarginTop=%d", want.margin),
+				// Maximising a window lays the titlebar out from a separate set of
+				// keys that default to zero, which moved every button. These have
+				// to mirror the ordinary ones or the buttons jump.
+				fmt.Sprintf("ButtonMarginTopMaximized=%d", want.margin),
+				// Mirrors of the ordinary edges, without the padding the other
+				// branch adds: padding is outside the window, and a maximised
+				// window has none.
+				"TitleEdgeTopMaximized=0",
+				"TitleEdgeLeftMaximized=6",
+				"TitleEdgeRightMaximized=6",
+			} {
+				if !strings.Contains(rc, line) {
+					t.Errorf("layout file is missing %s", line)
+				}
+			}
+
+			// A non-square box would stretch the mark, which is the reason both
+			// dimensions are asserted rather than just the width.
+			if !strings.Contains(readFile(t, filepath.Join(dst, "close.svg")), want.mark) {
+				t.Errorf("close.svg does not draw its mark at the tuned size (%s)", want.mark)
 			}
 		})
 	}

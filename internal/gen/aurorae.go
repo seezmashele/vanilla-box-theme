@@ -141,12 +141,43 @@ func (c circleButton) render() string {
 // the decoration shape and the button style, which is why it is the one file
 // resolved from a pair of axes rather than laid down by an overlay.
 func auroraeRC(palette map[string]string, style buttonStyle, titleHeight int) string {
+	// Padding is the frame Aurorae leaves around the decoration for shadows and
+	// resize handles, and the title edges are the insets inside it.
+	const (
+		padding         = 1
+		titleEdgeTop    = 0
+		titleEdgeBottom = 0
+		titleEdgeSide   = 6
+	)
+
 	// Aurorae places a button at ButtonMarginTop from the top of the titlebar and
 	// leaves the rest of the slack below it, so a zero margin sits every button
-	// high. Deriving the margin centres whatever height a style asks for: the
-	// difference is barely visible on the 26px symbols and obvious on the 20px
-	// traffic lights.
+	// high. Deriving the margin centres whatever height a style asks for.
 	marginTop := (titleHeight-style.Height)/2 + style.NudgeTop
+
+	// A maximised window is laid out from an entirely separate set of keys, and
+	// every one of them defaults to zero rather than to its ordinary
+	// counterpart. AuroraeButtonGroup.qml computes the button offset as
+	//
+	//     maximised ? titleEdgeTopMaximized + buttonMarginTopMaximized
+	//               : titleEdgeTop + padding.top + buttonMarginTop
+	//
+	// so leaving them unset moved every button on maximise.
+	//
+	// The maximised keys mirror the ordinary ones exactly, and deliberately do
+	// not add the padding the other branch adds. Padding is the frame outside the
+	// window, so the decoration's origin sits that far out from the window edge
+	// when a window is not maximised and exactly on it when it is: the ordinary
+	// branch adds padding to reach the same place the maximised branch already
+	// starts from. Adding it to both put every button a pixel out.
+	//
+	// The edges also feed the titlebar height — borderTopMaximized is
+	// titleEdgeTopMaximized + TitleHeight + titleEdgeBottomMaximized — so a
+	// padded edge would additionally make a maximised titlebar 2px taller than a
+	// restored one.
+	maxTop := titleEdgeTop
+	maxBottom := titleEdgeBottom
+	maxSide := titleEdgeSide
 
 	return fmt.Sprintf(`[General]
 ActiveTextColor=%s
@@ -159,10 +190,14 @@ Animation=0
 BorderLeft=0
 BorderRight=0
 BorderBottom=0
-TitleEdgeTop=0
-TitleEdgeBottom=0
-TitleEdgeLeft=6
-TitleEdgeRight=6
+TitleEdgeTop=%d
+TitleEdgeBottom=%d
+TitleEdgeLeft=%d
+TitleEdgeRight=%d
+TitleEdgeTopMaximized=%d
+TitleEdgeBottomMaximized=%d
+TitleEdgeLeftMaximized=%d
+TitleEdgeRightMaximized=%d
 TitleBorderLeft=4
 TitleBorderRight=4
 TitleHeight=%d
@@ -170,12 +205,18 @@ ButtonWidth=%d
 ButtonHeight=%d
 ButtonSpacing=0
 ButtonMarginTop=%d
+ButtonMarginTopMaximized=%d
 ExplicitButtonSpacer=6
-PaddingTop=1
-PaddingBottom=1
-PaddingLeft=1
-PaddingRight=1
-`, rgb(palette["text"]), rgb(palette["textInactive"]), titleHeight, style.Width, style.Height, marginTop)
+PaddingTop=%d
+PaddingBottom=%d
+PaddingLeft=%d
+PaddingRight=%d
+`, rgb(palette["text"]), rgb(palette["textInactive"]),
+		titleEdgeTop, titleEdgeBottom, titleEdgeSide, titleEdgeSide,
+		maxTop, maxBottom, maxSide, maxSide,
+		titleHeight, style.Width, style.Height,
+		marginTop, marginTop,
+		padding, padding, padding, padding)
 }
 
 // lookAndFeelDefaults renders the settings KDE applies when the global theme is

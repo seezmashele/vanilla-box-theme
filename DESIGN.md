@@ -167,13 +167,72 @@ empty `ButtonsOnRight`, against a default of `ButtonsOnRight=IAX`. **The exact l
 unverified** — confirm them once against System Settings -> Window Decorations before relying on
 them.
 
-**Metrics differ.** `ButtonWidth=28 ButtonHeight=26` suits glyph buttons; traffic lights are 20px.
+### Metrics as shipped
 
-`ButtonMarginTop` is derived rather than set, as `(TitleHeight - ButtonHeight) / 2`. Aurorae places
-a button that far from the top of the titlebar and leaves the remaining slack below it, so the zero
-it held before sat every button high — imperceptibly for the 26px symbols, obviously for the 20px
-traffic lights. The circles stay centred in their own 24x24 tile so the hit area still matches what
-is drawn; it is the button box that moves.
+These were tuned by eye against a real titlebar rather than derived from anything, so they are
+worth writing down. `TestTitlebarButtonMetrics` pins them.
+
+| | Symbols | Traffic lights |
+| --- | --- | --- |
+| Button box | 28 x 28 | 22 x 22 |
+| `glyphSize` / `circleRadius` | 13 | 6 |
+| **Rendered mark** | 13 x 13 px | 11 px across |
+| `nudgeTop` | -1 | -1 |
+| `ButtonMarginTop` | 0 | 3 |
+| Plate | square, no radius | n/a |
+
+Both boxes are square on purpose. Aurorae scales the 24x24 tile to `ButtonWidth x ButtonHeight`, so
+a box of 28x26 stretched every symbol 7.7% wider than tall — a circle in a glyph stopped being a
+circle. Keeping the box square makes the scale uniform.
+
+**The two size tokens are measured differently, which is a trap.** `glyphSize` is in rendered
+pixels: the generator converts it back into tile units so the number in the tokens is the number
+you measure on screen. `circleRadius` is still in tile units, so it scales with the button box —
+growing the box from 20 to 22 took the circles from 10px to 11px without the token changing.
+Worth unifying if the circles are ever tuned as carefully as the glyphs were.
+
+**`ButtonMarginTop` is derived**, as `(TitleHeight - ButtonHeight) / 2 + nudgeTop`. Aurorae places a
+button that far from the top of the titlebar and leaves the remaining slack below it, so a zero
+margin sits every button high. `nudgeTop` is the optical correction on top of that arithmetic, and
+it is relative: changing a button height moves the centre, so the nudge has to be revisited to hold
+the same edge alignment. The symbols' -1 is what makes their hover plate sit flush against the
+titlebar's top border.
+
+The circles stay centred in their own tile so the hit area still matches what is drawn; it is the
+button box that moves.
+
+### Maximised windows lay out from different keys
+
+Aurorae positions a maximised titlebar from an entirely separate set of `*Maximized` keys, and
+every one of them defaults to zero rather than to its ordinary counterpart. `AuroraeButtonGroup.qml`
+computes the button offset as
+
+```qml
+maximised ? titleEdgeTopMaximized + buttonMarginTopMaximized
+          : titleEdgeTop + padding.top + buttonMarginTop
+```
+
+Leaving them unset moved every button the moment a window was maximised: 1px up for the symbols,
+4px up for the traffic lights, and 7px outward for both. Nothing in the theme was wrong — the
+second branch simply read values nobody had written.
+
+Each maximised key now mirrors its ordinary counterpart, and deliberately does **not** add the
+padding the other branch adds. Padding is the frame outside the window: the decoration's origin
+sits that far out from the window edge when a window is restored, and exactly on it when maximised.
+The ordinary branch adds padding to reach the place the maximised branch already starts from, so
+adding it to both puts every button a pixel out — which is what a first attempt at this did.
+
+The edges also feed the titlebar height. `borderTopMaximized` is
+`titleEdgeTopMaximized + TitleHeight + titleEdgeBottomMaximized`, so padded edges additionally made
+a maximised titlebar 2px taller than a restored one — a second, larger error hiding behind the
+first.
+
+`TestTitlebarButtonMetrics` asserts the maximised keys alongside the ordinary metrics, because this
+is precisely the kind of thing that is invisible until someone maximises a window.
+
+Note that KWin reads an Aurorae theme once. Changing these values means reinstalling *and* making
+KWin reload the decoration — switching to another window decoration in System Settings and back is
+enough, and is quicker than restarting the session.
 
 **The interaction model differs.** The Windows-style buttons are monochrome glyphs at rest that
 gain a square coloured plate on hover. The Mac style has no glyphs at all: three grey circles at rest,
