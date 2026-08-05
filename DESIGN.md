@@ -323,19 +323,41 @@ re-vendor, so this is a decision that stays cheap to revisit rather than one to 
 
 The weights are not the same drawing at different thicknesses, and a few compositions change
 outright: `power` is a solid disc with a knocked-out symbol in `fill` and a bare arc in `light`, so
-it measures 12.7px where the filled one measured 14. The glyph size below is a grid reference, not
-a promise about any individual icon.
+it comes out a pixel and a half under the icons it sits beside. The glyph size below is a grid
+reference, not a promise about any individual icon.
 
 **Inheritance is what makes the set possible at all.** Breeze ships nineteen thousand SVGs. Any
 attempt to replace that is a project, not a component. `index.theme` names `Inherits=breeze-dark`,
-so the sixty-odd names mapped here are the only ones this theme owes; everything else is answered
-by Breeze, including names KDE has not invented yet. The scope that follows is "icons the shell
-itself draws" — tray, launcher, kickoff categories, session actions — because those are the ones
-seen constantly and against our own panel.
+so the names mapped here are the only ones this theme owes; everything else is answered by Breeze,
+including names KDE has not invented yet. The scope that follows is "icons the shell itself draws"
+— tray, launcher, applet chrome, kickoff, session actions — because those are the ones seen
+constantly and against our own panel.
 
 The boundary worth stating: application entries in the menu draw from each application's own
 `.desktop` file. Firefox stays Firefox. This theme owns the launcher button, the category rail and
 the session actions, not the app list.
+
+### Finding what is missing
+
+Guessing at icon names does not work; a missing one is invisible, because inheritance quietly
+supplies a Breeze icon in its place and the result looks intentional. So the list is derived rather
+than imagined:
+
+```sh
+# the icon names the shell actually references
+strings /usr/bin/plasmashell /usr/lib64/qt6/qml/org/kde/plasma/private/*/*.so |
+  grep -oE '[a-z][a-z0-9]+(-[a-z0-9]+)+' | sort -u > referenced
+# intersect with names Breeze actually ships, then subtract spec/icons.json
+```
+
+Restricting to hyphenated names is what makes it usable: binaries are full of single words that
+collide with icon names — `class`, `enum`, `sqrt`, `formula` are all real Breeze icons and none of
+them is being asked for by the panel. Hyphenated matches are almost always genuine.
+
+That found the applet header's `configure` and `window-pin`, kickoff's `favorites` and
+`help-contents`, and about fifty more. What is left unmapped after it is deliberate: app-specific
+names the shell merely mentions (`kdeconnect-tray`, `games-highscores`, `irc-voice`,
+`view-barcode-qr`) and the mobile broadband set.
 
 ### The transform is a wrapper
 
@@ -381,13 +403,15 @@ its artwork is inset by 24 units of 256, so it draws to 81% of its box where Bre
 Breeze itself measures **16.0px**, and Breeze is where every unmapped icon still comes from, so it
 is the size ours are seen next to.
 
-The theme ships **14px**, deliberately below both — a 4 pixel margin, quieter than the icons around
-it. That is a look rather than a match, and the tray will show the difference on any panel that
-mixes the two.
+The theme ships **16px**, a 3 pixel margin, which is Breeze's own metric — so a mapped icon and the
+inherited one beside it are drawn to the same size. It arrived there by being asked for twice
+rather than by aiming at it, which is worth recording: 14 and 15 both read as small on a panel
+mixing the two sets, and the size Breeze picked turned out to be the size that looks right next to
+Breeze.
 
-In the light weight the square icons land a little under it: the grid constant is 208 units and the
-weight's own drawings sit between 172 and 212, so a magnifying glass measures 13.7px and a lock
-14.3. That spread is the artwork's, not the scale's.
+In the light weight the square icons spread around it: the grid constant is 208 units and the
+weight's own drawings sit between 172 and 212, so a magnifying glass measures 15.7px, a lock 16.3
+and the launcher's four squares 13.2. That spread is the artwork's, not the scale's.
 
 The scale is uniform rather than per-icon, and applied as a transform about the centre of the box
 rather than by rewriting path data — what is committed stays recognisably the vendored source with
@@ -420,8 +444,9 @@ of slots; the generator multiplies it out. A slot alternative naming an icon ove
 — a charging battery is the same picture at every charge — and one naming null keeps it, which is
 how a power profile changes the filename without changing the artwork.
 
-Mobile broadband is deliberately unmapped: another hundred and sixty names for hardware this
-desktop does not have, and Breeze still answers them.
+Mobile broadband is deliberately unmapped, even though the scan shows the shell referencing it:
+another hundred and sixty names, drawn only by a machine with a modem in it, and Breeze still
+answers them. It is the one place where "referenced by the shell" and "worth mapping" come apart.
 
 ### The sources are vendored
 
@@ -539,7 +564,7 @@ assets/                     generated; committed
     surfaces/<shape>/               frames and controls       30 files
     buttons/<style>/                titlebar set              10 files
   icons/VanillaBoxIconsDark/
-    <context>/scalable/             the icon theme           433 files
+    <context>/scalable/             the icon theme           585 files
 ```
 
 The emitters are Go rather than text templates. Regeneration has to be byte-for-byte against

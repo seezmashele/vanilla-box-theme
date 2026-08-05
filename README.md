@@ -199,11 +199,11 @@ follow the colour scheme: an icon that defers is repainted in the scheme's text 
 a colour of its own means not deferring. Remove the key and the icons follow the scheme again.
 
 `glyph` in the same file is the size in pixels, measured in the standard 22px box: the shipped
-`14` gives a 14.0px icon with a 4px margin. For scale, Phosphor unscaled is 17.9px and Breeze —
-where every unmapped icon still comes from — is 16.0px, so ours are deliberately the quieter of
-the two on a panel showing both.
+`16` gives a 16.0px icon with a 3px margin. That is Breeze's own metric, and Breeze is where every
+unmapped icon still comes from — so the two sets are drawn to the same size on a panel showing
+both. Phosphor unscaled would be 17.9px.
 
-Only the icons the shell draws are mapped — tray, launcher, kickoff categories, session actions —
+Only the icons the shell draws are mapped — tray, launcher, applet chrome, kickoff, session actions —
 and `index.theme` inherits `breeze-dark` for everything else, which is most things. Application
 icons in the menu come from each application's own `.desktop` file and are not ours to change.
 

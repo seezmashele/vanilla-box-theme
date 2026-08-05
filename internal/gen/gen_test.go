@@ -191,9 +191,9 @@ func TestGlyphSizeIsWhatItSays(t *testing.T) {
 	// Centred: half the freed space on each side. Pinned as the rendered string
 	// because an off-centre transform still looks plausible in isolation and
 	// only shows up as icons sitting high and left in a panel.
-	svg := icon{Paths: []string{`<path d="M0,0"/>`}, Fallback: "#e8e4dd", Scale: 0.783}.render()
+	svg := icon{Paths: []string{`<path d="M0,0"/>`}, Fallback: "#e8e4dd", Scale: 0.895}.render()
 
-	if want := `transform="translate(27.776,27.776) scale(0.783)"`; !strings.Contains(svg, want) {
+	if want := `transform="translate(13.44,13.44) scale(0.895)"`; !strings.Contains(svg, want) {
 		t.Errorf("want %s in:\n%s", want, svg)
 	}
 
