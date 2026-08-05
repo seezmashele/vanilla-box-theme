@@ -18,8 +18,7 @@ import (
 type screen int
 
 const (
-	screenSelect screen = iota
-	screenOptions
+	screenOptions screen = iota
 	screenConfirm
 	screenInstall
 	screenDone
@@ -64,9 +63,13 @@ type Model struct {
 	// handed to Install as-is.
 	choices theme.Choices
 
-	screen       screen
-	cursor       int
+	screen screen
+
+	// optionCursor indexes optionRows, which mixes headers with the rows that
+	// can be acted on; optionScroll is the first row rendered, so a list taller
+	// than the terminal stays navigable.
 	optionCursor int
+	optionScroll int
 
 	// finishing means the last step is done and we are letting the progress bar
 	// animate up to 100% before moving on.
@@ -87,10 +90,12 @@ func New(t *theme.Theme) Model {
 	items := make([]item, len(t.Components))
 	choices := t.DefaultChoices()
 
+	// Every component the theme ships is installed. One whose files are missing
+	// is left out rather than failing the run, and the review screen says so.
 	for i, c := range t.Components {
 		items[i] = item{
 			component: c,
-			selected:  c.Default && c.Available,
+			selected:  (c.Default || c.Required) && c.Available,
 		}
 	}
 
@@ -100,14 +105,17 @@ func New(t *theme.Theme) Model {
 		theme:    t,
 		items:    items,
 		choices:  choices,
-		screen:   screenSelect,
+		screen:   screenOptions,
 		spinner:  spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(s.accent)),
 		progress: newProgress(s),
 		help:     help.New(),
 		keys:     newKeyMap(),
 		styles:   s,
 	}
-	m.cursor = m.firstSelectable()
+	m.optionCursor = m.firstOptionRow()
+	if len(m.visibleOptions()) == 0 {
+		m.screen = screenConfirm
+	}
 	m.updateBindings()
 
 	return m
@@ -187,8 +195,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.screen {
-	case screenSelect:
-		return m.handleSelectKey(msg)
 	case screenOptions:
 		return m.handleOptionsKey(msg)
 	case screenConfirm:
@@ -200,64 +206,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-func (m Model) handleSelectKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.Up):
-		m.cursor = m.moveCursor(-1)
-
-	case key.Matches(msg, m.keys.Down):
-		m.cursor = m.moveCursor(1)
-
-	case key.Matches(msg, m.keys.Toggle):
-		if m.cursor < len(m.items) && m.items[m.cursor].component.Available {
-			m.items[m.cursor].selected = !m.items[m.cursor].selected
-			m.updateBindings()
-		}
-
-	case key.Matches(msg, m.keys.All):
-		for i := range m.items {
-			m.items[i].selected = m.items[i].component.Available
-		}
-		m.updateBindings()
-
-	case key.Matches(msg, m.keys.None):
-		for i := range m.items {
-			m.items[i].selected = false
-		}
-		m.updateBindings()
-
-	case key.Matches(msg, m.keys.Confirm):
-		if m.selectedCount() > 0 {
-			m.screen = m.afterSelect()
-			m.optionCursor = 0
-			m.updateBindings()
-		}
-	}
-
-	return m, nil
-}
-
-// afterSelect is the screen that follows the checklist: the preferences, or
-// straight to the review when nothing selected has any.
-func (m Model) afterSelect() screen {
-	if len(m.visibleOptions()) == 0 {
-		return screenConfirm
-	}
-
-	return screenOptions
-}
-
-// beforeConfirm is afterSelect in reverse — where esc from the review lands.
-// The two cannot share a helper: skipping the preferences forwards means going
-// to the review, and skipping them backwards means returning to the checklist.
-func (m Model) beforeConfirm() screen {
-	if len(m.visibleOptions()) == 0 {
-		return screenSelect
-	}
-
-	return screenOptions
 }
 
 // visibleOptions are the preferences the current selection actually uses.
@@ -307,44 +255,16 @@ func (m Model) visibleOptions() []theme.Option {
 	return options
 }
 
-// hasSelect reports whether any option on the preferences screen is a choice
-// among values rather than a switch.
-func (m Model) hasSelect() bool {
-	for _, o := range m.visibleOptions() {
-		if o.Kind == theme.KindSelect {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	options := m.visibleOptions()
-
 	switch {
 	case key.Matches(msg, m.keys.Up):
-		if m.optionCursor > 0 {
-			m.optionCursor--
-		}
+		m.moveOptionCursor(-1)
 
 	case key.Matches(msg, m.keys.Down):
-		if m.optionCursor < len(options)-1 {
-			m.optionCursor++
-		}
+		m.moveOptionCursor(1)
 
 	case key.Matches(msg, m.keys.Toggle):
-		m.changeOption(options, 1)
-
-	case key.Matches(msg, m.keys.Next):
-		m.changeOption(options, 1)
-
-	case key.Matches(msg, m.keys.Prev):
-		m.changeOption(options, -1)
-
-	case key.Matches(msg, m.keys.Back):
-		m.screen = screenSelect
-		m.updateBindings()
+		m.chooseAtCursor()
 
 	case key.Matches(msg, m.keys.Confirm):
 		m.screen = screenConfirm
@@ -354,36 +274,27 @@ func (m Model) handleOptionsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// changeOption moves the option under the cursor by delta. A toggle has two
-// states and flips whichever way it is nudged; a select steps through its
-// values and wraps, so the same keys work on both kinds of row.
-func (m *Model) changeOption(options []theme.Option, delta int) {
-	if m.optionCursor >= len(options) {
+// chooseAtCursor acts on the row under the cursor: picking a value replaces
+// whatever that choice held, and a switch flips.
+func (m *Model) chooseAtCursor() {
+	rows := m.optionRows()
+	if m.optionCursor >= len(rows) {
 		return
 	}
 
-	o := options[m.optionCursor]
-	if o.Kind != theme.KindSelect {
-		m.choices.Toggles[o.ID] = !m.choices.Toggles[o.ID]
-
-		return
+	row := rows[m.optionCursor]
+	switch row.kind {
+	case rowValue:
+		m.choices.Values[row.option.ID] = row.value.ID
+	case rowToggle:
+		m.choices.Toggles[row.option.ID] = !m.choices.Toggles[row.option.ID]
 	}
-
-	at := 0
-	for i, v := range o.Values {
-		if v.ID == m.choices.Values[o.ID] {
-			at = i
-		}
-	}
-
-	next := (at + delta + len(o.Values)) % len(o.Values)
-	m.choices.Values[o.ID] = o.Values[next].ID
 }
 
 func (m Model) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
-		m.screen = m.beforeConfirm()
+		m.screen = screenOptions
 		m.updateBindings()
 
 		return m, nil
@@ -465,8 +376,9 @@ func (m Model) restart() (tea.Model, tea.Cmd) {
 	}
 
 	m.queue = nil
-	m.screen = screenSelect
-	m.cursor = m.firstSelectable()
+	m.screen = screenOptions
+	m.optionCursor = m.firstOptionRow()
+	m.optionScroll = 0
 	m.updateBindings()
 
 	return m, nil
@@ -477,8 +389,6 @@ func (m Model) View() tea.View {
 	var body string
 
 	switch m.screen {
-	case screenSelect:
-		body = m.selectView()
 	case screenOptions:
 		body = m.optionsView()
 	case screenConfirm:
@@ -497,66 +407,25 @@ func (m Model) View() tea.View {
 // updateBindings enables only the keys the current screen responds to, which
 // keeps the help line honest for free.
 func (m *Model) updateBindings() {
-	selecting := m.screen == screenSelect
 	choosing := m.screen == screenOptions
-	hasSelection := m.selectedCount() > 0
 
-	m.keys.Up.SetEnabled(selecting || choosing)
-	m.keys.Down.SetEnabled(selecting || choosing)
-	m.keys.Toggle.SetEnabled(selecting || choosing)
-
-	// The sideways keys only mean anything where a row has more than two
-	// states, so they stay out of the help line unless a select is on screen.
-	m.keys.Prev.SetEnabled(choosing && m.hasSelect())
-	m.keys.Next.SetEnabled(choosing && m.hasSelect())
-
-	m.keys.All.SetEnabled(selecting)
-	m.keys.None.SetEnabled(selecting)
-	m.keys.Confirm.SetEnabled((selecting && hasSelection) || choosing)
+	m.keys.Up.SetEnabled(choosing)
+	m.keys.Down.SetEnabled(choosing)
+	m.keys.Toggle.SetEnabled(choosing)
+	m.keys.Confirm.SetEnabled(choosing)
 
 	m.keys.Install.SetEnabled(m.screen == screenConfirm)
-	m.keys.Back.SetEnabled(m.screen == screenConfirm || choosing)
+	m.keys.Back.SetEnabled(m.screen == screenConfirm)
 	m.keys.Restart.SetEnabled(m.screen == screenDone)
 	m.keys.Quit.SetEnabled(m.screen != screenInstall)
 }
 
-// moveCursor steps the cursor by delta, stopping at the ends of the list.
-func (m Model) moveCursor(delta int) int {
-	next := m.cursor + delta
-	if next < 0 || next >= len(m.items) {
-		return m.cursor
-	}
-
-	return next
-}
-
-// firstSelectable is where the cursor starts: the first available component, or
-// the top of the list if nothing is available.
-func (m Model) firstSelectable() int {
-	for i, it := range m.items {
-		if it.component.Available {
-			return i
-		}
-	}
-
-	return 0
-}
-
-func (m Model) selectedCount() int {
+// installCount is how many components will actually be written. Components
+// whose files are missing are not among them.
+func (m Model) installCount() int {
 	var n int
 	for _, it := range m.items {
 		if it.selected {
-			n++
-		}
-	}
-
-	return n
-}
-
-func (m Model) availableCount() int {
-	var n int
-	for _, it := range m.items {
-		if it.component.Available {
 			n++
 		}
 	}

@@ -15,7 +15,7 @@ func (m Model) confirmView() string {
 	b.WriteString(m.heading("Review"))
 	b.WriteString("\n")
 	b.WriteString(m.styles.subtitle.Render(fmt.Sprintf(
-		"%d component(s) will be installed:", m.selectedCount(),
+		"%d component(s) will be installed:", m.installCount(),
 	)))
 	b.WriteString("\n\n")
 
@@ -33,6 +33,20 @@ func (m Model) confirmView() string {
 			b.WriteString(m.styles.path.Render("      " + o.Name + ": " + m.optionSummary(o)))
 			b.WriteString("\n")
 		}
+	}
+
+	// Everything the theme ships is installed, so a component missing from the
+	// list above was left out by a gap in the asset tree rather than by choice.
+	// Saying so here is the only place it now gets said.
+	for _, it := range m.items {
+		if it.selected {
+			continue
+		}
+
+		b.WriteString(m.styles.dimmed.Render(
+			"  • " + it.component.Name + " — unavailable, will be skipped",
+		))
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")

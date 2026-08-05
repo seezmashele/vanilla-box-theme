@@ -43,6 +43,11 @@ type Component struct {
 	// Default reports whether the component starts out selected.
 	Default bool `json:"default"`
 
+	// Required components are installed always and are not offered as a choice.
+	// The colour scheme is one: every palette is a colour scheme, so asking
+	// whether to install one while also asking which one is a contradiction.
+	Required bool `json:"required"`
+
 	// Available reports whether Source actually exists in the asset directory.
 	// It is filled in by the availability check, not read from theme.json.
 	Available bool `json:"-"`

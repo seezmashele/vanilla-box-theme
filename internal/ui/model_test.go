@@ -37,14 +37,14 @@ func testTheme(t *testing.T) *theme.Theme {
 		Components: []theme.Component{
 			{
 				ID: "colors", Name: "Color scheme", Source: "colors.colors",
-				Target: "color-schemes", Default: true, Available: true,
+				Target: "color-schemes", Required: true, Available: true,
 				// Declares no options of its own, but reads the tint declared on
 				// the Plasma style.
 				Resolved: []theme.Resolved{{Source: "variants/{tint}/c.colors", Target: ""}},
 			},
 			{
 				ID: "style", Name: "Plasma style", Source: "style",
-				Target: "plasma/desktoptheme", Default: true, Available: true,
+				Target: "plasma/desktoptheme", Required: true, Available: true,
 				Options: []theme.Option{
 					{
 						ID: "transparency", Name: "Transparency", Kind: theme.KindToggle,
@@ -67,7 +67,7 @@ func testTheme(t *testing.T) *theme.Theme {
 			},
 			{
 				ID: "cursors", Name: "Cursors", Source: "missing",
-				Target: "icons", Available: false,
+				Target: "icons", Required: true, Available: false,
 			},
 		},
 	}
@@ -120,194 +120,168 @@ func keyPress(k string) tea.KeyPressMsg {
 	panic("unhandled key " + k)
 }
 
-// optionAt puts the cursor on the named preference, so tests do not depend on
-// the order visibleOptions happens to produce.
+// optionAt puts the cursor on the named switch, so tests do not depend on the
+// order the rows happen to come out in.
 func optionAt(t *testing.T, m Model, id string) Model {
 	t.Helper()
 
-	for i, o := range m.visibleOptions() {
-		if o.ID == id {
+	for i, r := range m.optionRows() {
+		if r.kind == rowToggle && r.option.ID == id {
 			m.optionCursor = i
 
 			return m
 		}
 	}
 
-	t.Fatalf("no %q among the visible options", id)
+	t.Fatalf("no %q switch among the visible preferences", id)
 
 	return m
 }
 
-func TestSelectScreenStartsOnDefaults(t *testing.T) {
+// TestPreferencesIsTheFirstScreen covers the removal of the checklist: there is
+// nothing to choose between components, so the run opens on the preferences.
+func TestPreferencesIsTheFirstScreen(t *testing.T) {
 	m := New(testTheme(t))
-
-	if m.screen != screenSelect {
-		t.Fatalf("screen = %v, want screenSelect", m.screen)
-	}
-	if got := m.selectedCount(); got != 2 {
-		t.Errorf("selectedCount() = %d, want 2 (defaults that are available)", got)
-	}
-
-	view := renderView(m)
-	if !strings.Contains(view, "Vanilla Box v0.1.0") {
-		t.Error("select view should show the theme title")
-	}
-	if !strings.Contains(view, "unavailable") {
-		t.Error("select view should mark the unavailable component")
-	}
-}
-
-func TestUnavailableComponentCannotBeSelected(t *testing.T) {
-	m := New(testTheme(t))
-	m.cursor = 2 // the unavailable one
-
-	m, _ = send(m, " ")
-
-	if m.items[2].selected {
-		t.Error("toggling an unavailable component should do nothing")
-	}
-}
-
-func TestSelectAllSkipsUnavailable(t *testing.T) {
-	m := New(testTheme(t))
-
-	m, _ = send(m, "a")
-
-	if got := m.selectedCount(); got != 2 {
-		t.Errorf("selectedCount() after 'a' = %d, want 2", got)
-	}
-}
-
-func TestCannotContinueWithNothingSelected(t *testing.T) {
-	m := New(testTheme(t))
-
-	m, _ = send(m, "n", "enter")
-
-	if m.screen != screenSelect {
-		t.Error("enter with nothing selected should stay on the select screen")
-	}
-	if m.keys.Confirm.Enabled() {
-		t.Error("the continue binding should be disabled with nothing selected")
-	}
-}
-
-func TestOptionsScreenStartsOnDefaults(t *testing.T) {
-	m := New(testTheme(t))
-
-	m, _ = send(m, "enter")
 
 	if m.screen != screenOptions {
 		t.Fatalf("screen = %v, want screenOptions", m.screen)
 	}
-	if !m.choices.Toggles["transparency"] {
-		t.Error("transparency should start on, from the option's default")
+	if got := m.installCount(); got != 2 {
+		t.Errorf("installCount() = %d, want 2 (the two whose files are present)", got)
 	}
 
-	if view := renderView(m); !strings.Contains(view, "Transparency") {
-		t.Error("options view should list the option")
+	view := renderView(m)
+	if strings.Contains(view, "Choose what to install") {
+		t.Error("the component checklist should be gone")
 	}
-
-	m = optionAt(t, m, "transparency")
-	m, _ = send(m, " ")
-	if m.choices.Toggles["transparency"] {
-		t.Error("space should turn the option off")
+	if !strings.Contains(view, "Preferences") {
+		t.Error("the first screen should be the preferences")
 	}
 }
 
-// TestSelectCyclesThroughItsValues covers the row kind the transparency split
-// does not exercise: a choice among values rather than a switch.
-func TestSelectCyclesThroughItsValues(t *testing.T) {
+// TestUnavailableComponentIsSkipped is what replaces the greyed-out checklist
+// row: a gap in the asset tree installs the rest and says what it left out.
+func TestUnavailableComponentIsSkipped(t *testing.T) {
 	m := New(testTheme(t))
 
+	if m.items[2].selected {
+		t.Error("a component whose files are missing should not be queued")
+	}
+
 	m, _ = send(m, "enter")
-	m = optionAt(t, m, "tint")
+	if view := renderView(m); !strings.Contains(view, "Cursors — unavailable, will be skipped") {
+		t.Errorf("the review should name what it is skipping, got:\n%s", view)
+	}
+}
+
+// TestEveryValueIsVisible is the point of the layout change: the alternatives
+// are on screen rather than behind a control you have to operate to find them.
+func TestEveryValueIsVisible(t *testing.T) {
+	view := renderView(New(testTheme(t)))
+
+	for _, name := range []string{"Neutral", "Slate", "Rose"} {
+		if !strings.Contains(view, name) {
+			t.Errorf("preferences should list %q without the user hunting for it", name)
+		}
+	}
+}
+
+// TestChoosingAValueReplacesTheCurrentOne covers the radio behaviour: picking
+// one value of a choice unsets the other, rather than accumulating.
+func TestChoosingAValueReplacesTheCurrentOne(t *testing.T) {
+	m := New(testTheme(t))
 
 	if got := m.choices.Values["tint"]; got != "neutral" {
 		t.Fatalf("tint = %q, want the declared default", got)
 	}
 
-	m, _ = send(m, "right")
-	if got := m.choices.Values["tint"]; got != "slate" {
-		t.Errorf("tint after right = %q, want slate", got)
-	}
+	m = rowFor(t, m, "tint", "rose")
+	m, _ = send(m, " ")
 
-	// Backwards from the first value wraps to the last, so neither end is a
-	// dead stop the user has to travel back across.
-	m, _ = send(m, "left", "left")
 	if got := m.choices.Values["tint"]; got != "rose" {
-		t.Errorf("tint after wrapping backwards = %q, want rose", got)
+		t.Errorf("tint = %q, want rose", got)
 	}
 
-	if view := renderView(m); !strings.Contains(view, "Rose") {
-		t.Error("options view should show the chosen value by name")
+	m = rowFor(t, m, "tint", "slate")
+	m, _ = send(m, " ")
+
+	if got := m.choices.Values["tint"]; got != "slate" {
+		t.Errorf("tint = %q, want slate — a choice holds one value", got)
 	}
 }
 
-// TestPreferenceFollowsTheComponentThatReadsIt covers a preference declared on
-// one component and consumed by another. The colour scheme reads the tint
-// through a resolved path without declaring it, so deselecting the Plasma style
-// must not take the tint off screen while something still uses it.
-func TestPreferenceFollowsTheComponentThatReadsIt(t *testing.T) {
+// TestCursorSkipsHeaders keeps the cursor on rows that do something. A header
+// names a choice and cannot be selected.
+func TestCursorSkipsHeaders(t *testing.T) {
+	m := New(testTheme(t))
+	rows := m.optionRows()
+
+	if rows[m.optionCursor].kind == rowHeader {
+		t.Fatal("the cursor should not start on a header")
+	}
+
+	for range len(rows) + 2 {
+		m, _ = send(m, "down")
+		if rows[m.optionCursor].kind == rowHeader {
+			t.Fatalf("cursor landed on the header at row %d", m.optionCursor)
+		}
+	}
+
+	for range len(rows) + 2 {
+		m, _ = send(m, "up")
+		if rows[m.optionCursor].kind == rowHeader {
+			t.Fatalf("cursor landed on the header at row %d going back", m.optionCursor)
+		}
+	}
+}
+
+// TestShortTerminalScrolls checks the window follows the cursor rather than
+// letting it walk off the bottom of a list taller than the screen.
+func TestShortTerminalScrolls(t *testing.T) {
 	m := New(testTheme(t))
 
-	m.cursor = 1 // the Plasma style, which declares tint and transparency
-	m, _ = send(m, " ", "enter")
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 13})
+	m = next.(Model)
 
-	if m.screen != screenOptions {
-		t.Fatalf("screen = %v, want the preferences to still be shown", m.screen)
+	visible := m.visibleRows(len(m.optionRows()))
+	if visible >= len(m.optionRows()) {
+		t.Fatalf("test needs a window shorter than the list: %d of %d", visible, len(m.optionRows()))
 	}
 
-	var ids []string
-	for _, o := range m.visibleOptions() {
-		ids = append(ids, o.ID)
+	for range len(m.optionRows()) {
+		m, _ = send(m, "down")
+
+		if m.optionCursor < m.optionScroll || m.optionCursor >= m.optionScroll+visible {
+			t.Fatalf("cursor %d outside the window [%d,%d)",
+				m.optionCursor, m.optionScroll, m.optionScroll+visible)
+		}
 	}
 
-	if len(ids) != 1 || ids[0] != "tint" {
-		t.Errorf("visible options = %v, want just the tint the colour scheme reads", ids)
-	}
-}
-
-// TestSidewaysKeysHiddenWithoutASelect keeps the help line honest: the arrows
-// only do something where a row has more than two states.
-func TestSidewaysKeysHiddenWithoutASelect(t *testing.T) {
-	th := testTheme(t)
-	th.Components[1].Options = th.Components[1].Options[:1] // drop the select
-
-	m := New(th)
-	m, _ = send(m, "enter")
-
-	if m.keys.Next.Enabled() {
-		t.Error("the sideways bindings should be disabled when no select is on screen")
+	if !strings.Contains(renderView(m), "below") && !strings.Contains(renderView(m), "above") {
+		t.Error("a clipped list should say how much is off screen")
 	}
 }
 
-// TestOptionsScreenSkippedWithoutOptions covers deselecting the only component
-// that has preferences: there is nothing to ask about, so the step is skipped
-// rather than shown empty.
-func TestOptionsScreenSkippedWithoutOptions(t *testing.T) {
-	th := testTheme(t)
-	th.Components[0].Resolved = nil // and it reads no preference either
+// rowFor puts the cursor on a named value of a named option.
+func rowFor(t *testing.T, m Model, option, value string) Model {
+	t.Helper()
 
-	m := New(th)
+	for i, r := range m.optionRows() {
+		if r.kind == rowValue && r.option.ID == option && r.value.ID == value {
+			m.optionCursor = i
 
-	m.cursor = 1 // the optioned component
-	m, _ = send(m, " ", "enter")
-
-	if m.screen != screenConfirm {
-		t.Fatalf("screen = %v, want screenConfirm", m.screen)
+			return m
+		}
 	}
 
-	// And esc goes back to the checklist, not to a screen that was never shown.
-	m, _ = send(m, "esc")
-	if m.screen != screenSelect {
-		t.Errorf("screen = %v, want screenSelect after esc", m.screen)
-	}
+	t.Fatalf("no %q row for option %q", value, option)
+
+	return m
 }
 
 func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter")
 	m = optionAt(t, m, "transparency")
 	m, _ = send(m, " ", "enter")
 
@@ -330,17 +304,19 @@ func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
 	}
 }
 
-func TestEscapeGoesBackScreenByScreen(t *testing.T) {
+// TestEscapeReturnsToPreferences checks the one step back that still exists.
+// The preferences are the first screen now, so esc there has nowhere to go and
+// the binding is disabled rather than silently doing nothing.
+func TestEscapeReturnsToPreferences(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter", "enter", "esc")
+	m, _ = send(m, "enter", "esc")
 	if m.screen != screenOptions {
-		t.Fatalf("screen = %v, want screenOptions after esc from confirm", m.screen)
+		t.Fatalf("screen = %v, want screenOptions after esc from the review", m.screen)
 	}
 
-	m, _ = send(m, "esc")
-	if m.screen != screenSelect {
-		t.Errorf("screen = %v, want screenSelect after esc from options", m.screen)
+	if m.keys.Back.Enabled() {
+		t.Error("esc should be disabled on the first screen")
 	}
 }
 
@@ -350,7 +326,7 @@ func TestEscapeGoesBackScreenByScreen(t *testing.T) {
 func TestInstallWalksTheQueue(t *testing.T) {
 	m := New(testTheme(t))
 
-	m, _ = send(m, "enter", "enter") // through the preferences, to the review
+	m, _ = send(m, "enter") // through the preferences, to the review
 	next, cmd := m.Update(keyPress("enter"))
 	m = next.(Model)
 
@@ -415,8 +391,8 @@ func TestRestartFromDone(t *testing.T) {
 
 	m, _ = send(m, "r")
 
-	if m.screen != screenSelect {
-		t.Errorf("screen = %v, want screenSelect", m.screen)
+	if m.screen != screenOptions {
+		t.Errorf("screen = %v, want screenOptions", m.screen)
 	}
 	if m.items[0].status != statusPending {
 		t.Error("restart should clear step statuses")

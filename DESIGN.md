@@ -22,7 +22,7 @@ the tile offsets around it. `KSvg` draws through `QSvgRenderer`, which implement
 Tiny: no CSS custom properties, no stylable `rx`, no dependable `<use>`. There is no runtime knob
 for shape, and no SVG trick will produce one. Square artwork means different bytes.
 
-Treating both as one problem multiplies: 3 tints x 2 surface shapes x 2 decoration shapes x 2
+Treating both as one problem multiplies: 6 palettes x 2 surface shapes x 2 decoration shapes x 2
 button styles is 24 combinations of 25 artwork files. Separating them makes the cost additive
 instead, because **each axis owns a disjoint set of files**.
 
@@ -30,33 +30,51 @@ instead, because **each axis owns a disjoint set of files**.
 
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
-| Tint | `neutral` | runtime, plus one SVG | the two `colors` files, `decoration.svg` |
-| Accent | `sand` | runtime | the two `colors` files, the look-and-feel `defaults` |
-| Surface shape | `rounded` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
-| Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the tint |
+| Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
+| Surface shape | `square` | baked | the four frames across three prefixes, plus `button`, `lineedit`, `viewitem` |
+| Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
 | Button style | `windows` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
 
-Window decorations are square by default and panels and popups are rounded. These are separate
-axes precisely so that default is expressible.
+Square is the default on both shape axes, so that accepting every prompt gives a theme with no
+rounded corners anywhere. They stay separate axes because the two questions are genuinely
+independent — rounded panels under a square titlebar is a combination someone will want — and
+because only the titlebar carries the Aurorae limitation below.
 
-Tint and accent are chosen independently — the surface colour and the highlight colour are two
-questions, and pairing them would multiply the menu without adding expressiveness.
+Both values of the surface axis carry an overlay, including the default one. A value that copies
+nothing would be correct only while the base artwork happens to be that shape, and the base has
+already changed once.
 
-A tint moves surfaces only. Text, inactive text and the colour that sits on the highlight are held
-still across all three, because warm text on a blue surface reads as a mistake rather than as a
-variant. It also keeps the tint almost free: of the twenty-four generated files, the only artwork a
-tint repaints is `decoration.svg`, which paints the titlebar directly instead of deferring to the
-scheme. Everything else either resolves its colour at paint time or carries the palette only as an
-editor fallback.
+A palette is a surface set and the accent that goes with it, chosen together. Surfaces and
+highlights were two independent axes at first, on the reasoning that they are two questions. They
+are — but a curated pair is a defensible answer to both, and eighteen combinations is a great deal
+of menu for something most people set once and never revisit. Six named variants say more about
+what the theme is for than eighteen coordinates do.
+
+The cost is real: rose surfaces with a steel accent is no longer reachable. If that turns out to
+matter the axes split again — the generator already writes a product elsewhere and would do it here
+without ceremony.
+
+Accents match their surfaces in temperature, so a variant reads as one decision rather than two.
+`neutral` and `ash` are the exception and share the grey surfaces: the difference between them is
+whether anything on screen is coloured at all. Surfaces are therefore named separately from
+palettes and referenced by name, so the two cannot drift apart by an edit to one of them.
+
+A palette moves surfaces and its accent. Text, inactive text and the colour that sits on the
+highlight are held still across all six, because warm text on a blue surface reads as a mistake
+rather than as a variant.
+
+That also keeps a palette almost free. The only artwork it repaints is `decoration.svg`, which
+paints the titlebar directly instead of deferring to the scheme; everything else either resolves
+its colour at paint time or carries the palette as nothing more than an editor fallback.
 
 Square decorations also retire a compromise. The comment in `aurorae/themes/VanillaBoxDark/
 decoration.svg` explains that Aurorae cannot round the bottom corners of a window — rounding needs
 a bottom border to draw the curve into, and anything narrower than the radius lets the client's
 square corner show through. That limitation now applies only to the non-default rounded variant.
 
-One file is claimed by two axes: `decoration.svg`, which the tint paints and the titlebar shape
-gives corners to. It is written as a product, `variants/decoration/<tint>-<shape>/`. See
+One file is claimed by two axes: `decoration.svg`, which the palette paints and the titlebar shape
+gives corners to. It is written as a product, `variants/decoration/<palette>-<shape>/`. See
 [Resolved files](#resolved-files).
 
 `VanillaBoxDarkrc` turned out to belong to one axis after all. Its `[Layout]` metrics are the
@@ -70,7 +88,7 @@ metrics beside the artwork they describe also makes it impossible to swap one wi
 
 The runtime mechanism did not work on the original artwork. The backgrounds carried the class but
 hardcoded the fill, so `currentColor` was never consulted and a `colors` file would have been
-silently ignored for exactly the surfaces a tint needs to reach:
+silently ignored for exactly the surfaces a palette needs to reach:
 
 ```
 widgets/background.svg        class="ColorScheme-Background" style="fill:#292929;fill-opacity:0.85"
@@ -96,67 +114,47 @@ rather than by count.
 
 ### Rules for the generator
 
-- `Window`, `Header` and `Complementary` backgrounds move together within a tint. Plasma resolves
-  a surface against one of the three depending on the widget's colour set; keeping them identical
+- `Window`, `Header` and `Complementary` backgrounds move together within a surface set. Plasma
+  resolves a surface against one of the three depending on the widget's colour set; keeping them
   means never having to work out which. The current scheme already satisfies this at `41,41,41`.
 - `.ColorScheme-ButtonHover` reads `[Colors:Button] DecorationHover`. `button.svg` says `#9e9e9e`
   and the scheme says `158,158,158`; both must be emitted from one token so they cannot drift.
-- `Colors:Selection` comes from the accent, not from the tint palette. It is the one role the two
-  colour axes share, and the reason they must be separate parameters rather than one lookup.
+- `Colors:Selection` comes from the palette's accent, not from its surfaces. It is the one role
+  that reads from the other half of the pair.
 - The colours embedded in each SVG's `current-color-scheme` block are fallbacks — what an editor
-  shows. They should stay accurate for the neutral tint and the default accent, but do not drive
-  rendering. `TestShippedStyleFollowsTheColorScheme` guards the deferral itself.
+  shows. They should stay accurate for the default palette, but do not drive rendering.
+  `TestShippedStyleFollowsTheColorScheme` guards the deferral itself.
 
-Palettes are written as explicit values per tint, not derived by a hue or chroma transform. A
-computed tint behaves badly at the lightness of `#141414`, and the near-blacks want hand-tuning.
-Five surface roles across three tints is fifteen numbers, plus one per accent.
+Surfaces are written as explicit values per set, not derived by a hue or chroma transform. A
+computed shift behaves badly at the lightness of `#141414`, and the near-blacks want hand-tuning.
+Six surface roles across five sets is thirty numbers, plus one accent per palette.
 
 ## Accent
 
 Accent is not part of the colour scheme format. None of the schemes shipped with Plasma carries an
 `AccentColor` key; it lives in `kdeglobals [General] AccentColor`, which the look-and-feel
-`defaults` file already writes, alongside `accentColorFromWallpaper=false` so KDE cannot override
-the choice from the desktop picture.
+`defaults` file writes, alongside `accentColorFromWallpaper=false` so KDE cannot override the
+choice from the desktop picture.
 
 For applications that is the whole mechanism — one line, and KDE tints selection, focus rings and
 checkboxes from it at runtime.
 
-The Plasma shell is the open part. Because the theme ships its own `colors` file, the shell reads
-that file directly rather than resolving through `kdeglobals`, so the accent may not reach panel
-artwork on its own. This decides the file count and nothing else:
+The Plasma shell is the part that was never settled. Because the theme ships its own `colors` file,
+the shell reads that file directly rather than resolving through `kdeglobals`, so the accent may
+not reach panel artwork on its own. Rather than answer the question, the accent is written into
+both: if the shell does resolve `kdeglobals` the second copy changes nothing, and if it does not,
+the second copy is the only thing that works.
 
-| If the shell follows `kdeglobals` | If it does not |
-| --- | --- |
-| accent lives only in `defaults` | accent is also baked into the desktoptheme `colors` |
-| tint and accent stay independent: 3 + N files | the two become a product: 3 x N files |
+### What the accent reaches
 
-Either way every file involved is a few kilobytes of ini and every one is generated. Hand-maintained
-input stays a single token file, and no artwork is produced in either case. Design the generator to
-take tint and accent as separate parameters and the outcome is a loop, not a rewrite.
+`Colors:Selection` in both `colors` files, and `AccentColor` in `kdeglobals`. The theme's greyscale
+was once deliberate — selection was `143,143,143` and the active task underline drew from
+`.ColorScheme-Highlight` rather than from a colour — and an accent that reached only application
+focus rings would be close to invisible in a desktop this neutral.
 
-### What the accent should reach
-
-The theme's greyscale is deliberate: `Colors:Selection` is `143,143,143`, and the active task
-underline draws from `.ColorScheme-Highlight` rather than from a colour. An accent that only
-reaches application focus rings would be close to invisible in a desktop this neutral.
-
-So the accent should drive `Colors:Selection` in both `colors` files as well as `kdeglobals`. That
-knowingly reverses the original decision for every non-neutral accent, which is the point of
-offering the axis.
-
-The two halves used to disagree — applications got `AccentColor=174,142,108` while the shell's
-highlight was `143,143,143` grey. They are now one colour per accent, driving both. Under the
-default `sand` that turns the active task underline from grey to tan, which is the point: an accent
-nobody can see is not worth choosing. `ash` restores a grey highlight for anyone who preferred it.
-
-Accents are named apart from the tints — `sand`, `ash`, `moss`, `steel`, `clay`, `plum` against
-`neutral`, `slate`, `rose` — so the preferences screen can never read "Colour: Slate, Accent:
-Slate".
-
-Baking the accent into the theme's own `colors` file settles the open question rather than
-answering it. If the shell does resolve `kdeglobals`, writing the same value in both places changes
-nothing; if it does not, writing it is the only thing that works. The cost is that the two colour
-files become a product of tint and accent, which is 36 files of a few kilobytes each.
+Under the default `neutral` palette that makes the active task underline tan rather than grey. The
+`ash` palette is the one that keeps a grey highlight, and it is the only place the original
+no-colour-anywhere look survives intact.
 
 ## Buttons
 
@@ -226,7 +224,7 @@ when compositing is off.
 
 An overlay's `from` is relative to the **asset directory**, not to the component's source. The
 original transparency option read its overlay out of the tree it had just installed, which was neat
-while every overlay lived inside one component. It does not survive a tint, whose two `colors`
+while every overlay lived inside one component. It does not survive a palette, whose two `colors`
 files belong to two different components, so overlays now name an asset-relative directory and the
 two cases work the same way.
 
@@ -243,15 +241,19 @@ shape select is written before the switches that draw from it.
 
 ```json
 {
-  "palettes": {
-    "neutral": { "base":"#292929", "elevated":"#2f2f2f", "view":"#141414",
-                 "text":"#e8e4dd", "border":"#383838" },
-    "slate":   { "base":"#272a2e", "…": "…" },
-    "rose":    { "base":"#2c2727", "…": "…" }
+  "theme":      { "name":"Vanilla Box Dark", "version":"0.2.0", "…":"…" },
+  "foreground": { "text":"#e8e4dd", "textInactive":"#8a8782", "onHighlight":"#1f1f1f" },
+
+  "surfaces": {
+    "grey":  { "background":"#292929", "elevated":"#2f2f2f", "view":"#141414", "…":"…" },
+    "slate": { "background":"#272a2f", "…":"…" },
+    "…":     "…"
   },
-  "accents": {
-    "sand": { "highlight":"#8f8f8f", "kde":"#ae8e6c" },
-    "…":    "…"
+  "palettes": {
+    "neutral": { "surfaces":"grey",  "accent":"#ae8e6c" },
+    "ash":     { "surfaces":"grey",  "accent":"#8f8f8f" },
+    "slate":   { "surfaces":"slate", "accent":"#7d93ad" },
+    "…":       "…"
   },
   "surfaceShape": {
     "rounded": { "panel":8, "popup":8, "button":6 },
@@ -286,9 +288,11 @@ internal/gen/
   colors.go                 KColorScheme ini from a palette and an accent
 assets/                     generated; committed
   variants/
-    colors/<tint>-<accent>/     the two colors files          36 files
-    decoration/<tint>/          decoration.svg                 3 files
-    defaults/<accent>/          look-and-feel defaults         6 files
+    colors/<palette>/               the two colors files      12 files
+    decoration/<palette>-<shape>/   decoration.svg            12 files
+    defaults/<palette>/             look-and-feel defaults     6 files
+    surfaces/<shape>/               frames and controls       30 files
+    buttons/<style>/                titlebar set              10 files
 ```
 
 The emitters are Go rather than text templates. Regeneration has to be byte-for-byte against
@@ -359,7 +363,7 @@ list `assets/`.
 
 ```json
 "options": [
-  { "id":"tint", "name":"Colour", "kind":"select", "defaultValue":"neutral",
+  { "id":"palette", "name":"Colour", "kind":"select", "defaultValue":"neutral",
     "values":[ { "id":"neutral", "name":"Neutral" },
                { "id":"slate",   "name":"Slate",
                  "overlay":{ "from":"variants/colors/slate" } } ] },
@@ -376,12 +380,45 @@ value with no overlay is the one that matches the artwork as generated — `neut
 An option still never edits a file. It only chooses which pre-generated bytes get copied, which is
 the same guarantee the transparency option makes today.
 
+### There is no component checklist
+
+Every component is marked `required`, so all of them install and the checklist screen is gone. The
+run opens on the preferences.
+
+The flag survives the screen it was invented for. It is what the manifest uses to say "this is not
+a choice", and re-introducing an optional component is a one-line edit rather than a restored
+screen — which is the only reason to keep a mechanism with a single value.
+
+What this gives up is real: the Global Theme package cannot be declined, and its `defaults` also
+sets a cursor theme and a splash screen. Those apply only once the Global Theme is picked in System
+Settings, but they are no longer avoidable at install time.
+
+A component whose files are missing is skipped rather than failing the run, and the review screen
+names it. That was the greyed-out checklist row's job, and the review is now the only place left to
+say it.
+
+### Choices are lists, not controls
+
+A choice renders as a header with one row per value, `(•)` on the chosen one. The alternative — a
+single row cycled with arrow keys — hides every option the user has not already found.
+
+The cost is height: seven preferences with their values is more than a 24-line terminal holds, so
+the screen scrolls. Blank lines between groups are rows in the model rather than padding inside
+another row, which keeps the scroll window counting screen lines and list rows identically.
+
+The window never begins part-way through a group or ends on a group's header. Unlabelled values and
+a header naming nothing are the same mistake, and both are worse than showing one group fewer.
+
+`←`/`→` went with the change. Once values have their own rows, up/down and space do everything, and
+a binding that duplicates another is noise in a help line whose whole purpose is to be honest.
+
 ### Where a preference is offered
 
 A preference is shown when the current selection actually uses it — either because a selected
-component declares it, or because a selected component names it in a resolved path. The tint is
+component declares it, or because a selected component names it in a resolved path. The palette is
 declared once, on the Plasma style, and the colour scheme reads it through
-`variants/colors/{tint}-{accent}/…`; installing only the colour scheme still offers the tint.
+`variants/colors/{palette}/…` — which matters more now that the colour scheme is required and no
+longer appears on the checklist at all.
 
 The alternative was repeating every value list on every component that consumes it, which is the
 same data in three places and three places for it to drift.
@@ -398,9 +435,10 @@ installs a single file needs.
 
 ```json
 "resolved": [
-  { "source":"variants/colors/{tint}-{accent}/colors", "target":"colors" },
+  { "source":"variants/colors/{palette}/colors",       "target":"colors" },
   { "source":"variants/defaults/{accent}/defaults",    "target":"contents/defaults" },
-  { "source":"variants/decoration/{tint}/decoration.svg", "target":"decoration.svg" }
+  { "source":"variants/decoration/{palette}-{titlebar}/decoration.svg",
+    "target":"decoration.svg" }
 ]
 ```
 
@@ -423,7 +461,7 @@ Backups continue to work as described in the README.
 
 - **Does Aurorae substitute colours at runtime?** The five Aurorae SVGs have no
   `current-color-scheme` block, and no system Aurorae theme is installed to compare against. If it
-  does not, tint multiplies the *generated* titlebar files by three; hand-maintained files stay
+  does not, a palette multiplies the *generated* titlebar files; hand-maintained files stay
   flat either way, so the risk is contained. Worth testing early regardless.
 - **Adding an accent is two edits, not one:** the colour in `spec/tokens.json`, and the value in
   `assets/theme.json` so the installer offers it. The manifest stays hand-written by decision —

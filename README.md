@@ -48,11 +48,9 @@ XDG_DATA_HOME=/tmp/vbtest ./vanillabox
 | Key | Does |
 | --- | --- |
 | `↑`/`k`, `↓`/`j` | Move |
-| `space` | Toggle a component or preference |
-| `←`/`h`, `→`/`l` | Change a preference that has more than two values |
-| `a` / `n` | Select all / none |
+| `space` | Choose the value under the cursor, or flip a switch |
 | `enter` | Continue, then install |
-| `esc` | Back |
+| `esc` | Back, from the review to the preferences |
 | `r` | Start over, from the summary |
 | `q` | Quit |
 
@@ -70,13 +68,15 @@ to that file, not to the code:
   "description": "Window and widget colors",
   "source": "color-schemes/VanillaBoxDark.colors",
   "target": "color-schemes",
-  "default": true
+  "required": true
 }
 ```
 
 `source` is relative to the asset directory; `target` is relative to `~/.local/share`.
 
 Four components ship:
+
+All four are marked `required`, so all four install and there is nothing to pick between:
 
 | Component | Installs to |
 | --- | --- |
@@ -85,9 +85,9 @@ Four components ship:
 | Window decoration | `aurorae/themes/VanillaBoxDark/` |
 | Global theme | `plasma/look-and-feel/org.vanillabox.dark/` |
 
-Components whose `source` is missing — or is an empty file or directory — are shown greyed out and
-labelled `unavailable`, and cannot be selected. To see that state, point the installer at a partial
-tree:
+A component whose `source` is missing — or is an empty file or directory — is skipped rather than
+failing the run, and the review screen lists it as `unavailable, will be skipped`. To see that,
+point the installer at a partial tree:
 
 ```sh
 ./vanillabox --assets /path/to/incomplete/assets
@@ -95,21 +95,37 @@ tree:
 
 ## Preferences
 
-Eight preferences ship. Five are choices; three are switches.
+The preferences are the first and only thing to decide. Seven ship — four choices and three
+switches — and every value of every choice is listed under it, so the alternatives are visible
+without operating anything. On a short terminal the list scrolls, marking how much sits above and
+below.
 
 | Preference | Values | Changes |
 | --- | --- | --- |
-| Surface colour | Neutral, Slate, Rose | panels, popups and window backgrounds |
-| Accent | Sand, Ash, Moss, Steel, Clay, Plum | selection, highlights, the active task |
-| Corners | Rounded, Square | panels, popups, buttons, inputs, list items |
+| Colour | Neutral, Ash, Slate, Moss, Rose, Plum | surfaces **and** the accent that goes with them |
+| Corners | Square, Rounded | panels, popups, buttons, inputs, list items |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |
 | Window buttons | Symbols, Traffic lights | close, minimise and maximise |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
 
-Titlebars are square by default. The rounded variant cannot round its *bottom* corners — see the
-comment in `decoration.svg` — so square is the only shape without a compromise.
+Every default is the first value listed, so accepting each prompt installs Neutral, square corners
+throughout and symbol buttons — a theme with no rounded corners anywhere.
+
+A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
+their surfaces in temperature, so each variant reads as one decision. Neutral and Ash share the
+same grey surfaces and differ only in whether anything on screen is coloured: Neutral has a warm
+tan accent, Ash has none.
+
+Everything the theme ships is installed. There is no component checklist: choosing a colour is
+already choosing a colour scheme, and the rest of the theme is what makes that colour mean
+anything. The review screen still lists every file destination before a byte is written.
+
+Corners and titlebar corners are separate preferences because the two are independent: rounded
+panels under a square titlebar is a reasonable thing to want. The titlebar's rounded variant cannot
+round its *bottom* corners — see the comment in `decoration.svg` — so square is the only shape
+there without a compromise.
 
 Traffic lights are grey circles that take a muted colour on hover, and never show a symbol. They
 stay on the right, where KDE puts window buttons; macOS would put them on the left, and you can
@@ -142,9 +158,10 @@ Most of `assets/` is written from `spec/tokens.json`:
 go generate ./...
 ```
 
-Adding a tint or an accent is an edit to that file — plus the matching value in `theme.json`, so
-the installer offers it. The version and the theme's identity live there too, and are written into
-the three KDE metadata files and the installer's own const.
+Adding a colour is an edit to that file — a surface set if it needs a new one, a palette pairing it
+with an accent, plus the matching value in `theme.json` so the installer offers it. The version and
+the theme's identity live there too, and are written into the three KDE metadata files and the
+installer's own const.
 
 `go test ./internal/gen` fails if the committed assets and the tokens have drifted apart, and CI
 runs `go generate` and fails on a dirty tree. Anything under `assets/variants/` the generator no

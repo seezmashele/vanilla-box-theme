@@ -1,13 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"vanillabox/internal/theme"
 )
 
-// optionsView is the preferences step: the choices that change what gets
-// written, for the components that are actually being installed.
+// optionsView is the preferences step, and now the first thing the user sees:
+// every choice with every alternative under it, one of each marked.
 func (m Model) optionsView() string {
 	var b strings.Builder
 
@@ -16,45 +17,83 @@ func (m Model) optionsView() string {
 	b.WriteString(m.styles.subtitle.Render("How the theme's files should be written"))
 	b.WriteString("\n\n")
 
-	for i, o := range m.visibleOptions() {
-		cursor := "  "
-		if i == m.optionCursor {
-			cursor = m.styles.accent.Render("❯ ")
-		}
+	rows := m.optionRows()
+	visible := m.visibleRows(len(rows))
+	end := min(m.optionScroll+visible, len(rows))
 
-		b.WriteString(cursor + m.optionRow(o))
+	// A header left dangling at the bottom names a group whose values are all
+	// off screen, which is the same problem as values without a header. Drop it
+	// and let the marker below account for it.
+	for end-1 > m.optionCursor && !rows[end-1].selectable() {
+		end--
+	}
+
+	// The markers say which way the rest of the list lies, rather than only that
+	// there is more of it.
+	if m.optionScroll > 0 {
+		b.WriteString(m.styles.dimmed.Render(fmt.Sprintf("  ⋮ %d above", m.optionScroll)))
+		b.WriteString("\n")
+	}
+
+	for i := m.optionScroll; i < end; i++ {
+		b.WriteString(m.renderRow(i, rows[i]))
+		b.WriteString("\n")
+	}
+
+	if below := len(rows) - end; below > 0 {
+		b.WriteString(m.styles.dimmed.Render(fmt.Sprintf("  ⋮ %d below", below)))
 		b.WriteString("\n")
 	}
 
 	return b.String()
 }
 
-// optionRow renders one preference. A switch reads as a checkbox; a choice
-// reads as its current value between arrows, so the two are distinguishable at
-// a glance and it is obvious which rows the sideways keys act on.
-func (m Model) optionRow(o theme.Option) string {
-	if o.Kind == theme.KindSelect {
-		row := m.styles.selected.Render(o.Name) +
-			" " + m.styles.accent.Render("‹ "+m.selectedValueName(o)+" ›")
-
-		if o.Description != "" {
-			row += " " + m.styles.dimmed.Render(o.Description)
-		}
-
-		return row
+func (m Model) renderRow(i int, row optionRow) string {
+	cursor := "  "
+	if i == m.optionCursor {
+		cursor = m.styles.accent.Render("❯ ")
 	}
 
+	switch row.kind {
+	case rowSpacer:
+		return ""
+
+	case rowHeader:
+		head := m.styles.heading.Render(row.option.Name)
+		if row.option.Description != "" {
+			head += " " + m.styles.dimmed.Render(row.option.Description)
+		}
+
+		// Headers are not selectable, so they never carry the cursor column.
+		return "  " + head
+
+	case rowValue:
+		mark, style := "( )", m.styles.item
+		if m.choices.Values[row.option.ID] == row.value.ID {
+			mark, style = "(•)", m.styles.selected
+		}
+
+		row := cursor + "  " + style.Render(mark+" "+row.value.Name)
+
+		return row
+
+	default:
+		return cursor + m.renderToggle(row.option)
+	}
+}
+
+func (m Model) renderToggle(o theme.Option) string {
 	box, style := "[ ]", m.styles.item
 	if m.choices.Toggles[o.ID] {
 		box, style = "[x]", m.styles.selected
 	}
 
-	row := style.Render(box + " " + o.Name)
+	out := style.Render(box + " " + o.Name)
 	if o.Description != "" {
-		row += " " + m.styles.dimmed.Render(o.Description)
+		out += " " + m.styles.dimmed.Render(o.Description)
 	}
 
-	return row
+	return out
 }
 
 // selectedValueName is the display name of a select's current value, falling

@@ -2,19 +2,19 @@
 <defs><style type="text/css" id="current-color-scheme">
 .ColorScheme-Background { color:#2f2f2f; }
 </style></defs>
-<g id="topleft"><path d="M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="topright"><path d="M34,0 L36,0 C40.418,0 44,3.582 44,8 L44,10 L34,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="bottomleft"><path d="M0,34 L10,34 L10,44 L8,44 C3.582,44 0,40.418 0,36 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="bottomright"><path d="M34,34 L44,34 L44,36 C44,40.418 40.418,44 36,44 L34,44 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="topright"><path d="M34,0 L44,0 L44,10 L34,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="bottomleft"><path d="M0,34 L10,34 L10,44 L0,44 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="bottomright"><path d="M34,34 L44,34 L44,44 L34,44 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
 <rect id="top" x="10" y="0" width="24" height="10" class="ColorScheme-Background" style="fill:currentColor"/>
 <rect id="bottom" x="10" y="34" width="24" height="10" class="ColorScheme-Background" style="fill:currentColor"/>
 <rect id="left" x="0" y="10" width="10" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
 <rect id="right" x="34" y="10" width="10" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
 <rect id="center" x="10" y="10" width="24" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
-<g id="mask-topleft"><path d="M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z" style="fill:#ffffff"/></g>
-<g id="mask-topright"><path d="M34,0 L36,0 C40.418,0 44,3.582 44,8 L44,10 L34,10 Z" style="fill:#ffffff"/></g>
-<g id="mask-bottomleft"><path d="M0,34 L10,34 L10,44 L8,44 C3.582,44 0,40.418 0,36 Z" style="fill:#ffffff"/></g>
-<g id="mask-bottomright"><path d="M34,34 L44,34 L44,36 C44,40.418 40.418,44 36,44 L34,44 Z" style="fill:#ffffff"/></g>
+<g id="mask-topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" style="fill:#ffffff"/></g>
+<g id="mask-topright"><path d="M34,0 L44,0 L44,10 L34,10 Z" style="fill:#ffffff"/></g>
+<g id="mask-bottomleft"><path d="M0,34 L10,34 L10,44 L0,44 Z" style="fill:#ffffff"/></g>
+<g id="mask-bottomright"><path d="M34,34 L44,34 L44,44 L34,44 Z" style="fill:#ffffff"/></g>
 <rect id="mask-top" x="10" y="0" width="24" height="10" style="fill:#ffffff"/>
 <rect id="mask-bottom" x="10" y="34" width="24" height="10" style="fill:#ffffff"/>
 <rect id="mask-left" x="0" y="10" width="10" height="24" style="fill:#ffffff"/>

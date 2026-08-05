@@ -21,14 +21,22 @@ import (
 type tokens struct {
 	Theme      identity                     `json:"theme"`
 	Foreground map[string]string            `json:"foreground"`
-	Palettes   map[string]map[string]string `json:"palettes"`
-	Accents    map[string]string            `json:"accents"`
+	Surfaces   map[string]map[string]string `json:"surfaces"`
+	Palettes   map[string]palette           `json:"palettes"`
 	Status     map[string]string            `json:"status"`
 
 	SurfaceShape    map[string]map[string]float64 `json:"surfaceShape"`
 	DecorationShape map[string]map[string]float64 `json:"decorationShape"`
 	ButtonStyles    map[string]buttonStyle        `json:"buttonStyles"`
 	Opacity         map[string]float64            `json:"opacity"`
+}
+
+// palette is a named colour variant: a surface set and the accent chosen to go
+// with it. Pairing them here rather than offering two independent choices is
+// what lets the installer ask one question instead of two.
+type palette struct {
+	Surfaces string `json:"surfaces"`
+	Accent   string `json:"accent"`
 }
 
 // buttonStyle is one titlebar button treatment. The plate opacities differ
@@ -76,11 +84,13 @@ const (
 
 	// The theme as shipped. Every other point in the variant space is written
 	// under variants/ and copied over an install by the option that names it.
-	defaultTint   = "neutral"
-	defaultAccent = "sand"
+	defaultPalette = "neutral"
 
-	// Square titlebars are the default: the rounded variant cannot round its
-	// bottom corners under Aurorae, so square is the shape without a compromise.
+	// Square is the default throughout, so that accepting every prompt gives a
+	// theme with no rounded corners anywhere. It is also the only titlebar shape
+	// without a compromise: the rounded variant cannot round its bottom corners
+	// under Aurorae.
+	defaultSurfaces = "square"
 	defaultTitlebar = "square"
 	defaultButtons  = "windows"
 
@@ -189,11 +199,17 @@ func removeEmptyDirs(dir string) error {
 	return nil
 }
 
-// palette merges the tint's surfaces with the foregrounds every tint shares.
-func (tk *tokens) palette(tint string) (map[string]string, error) {
-	surfaces, ok := tk.Palettes[tint]
+// colours resolves a palette into the surfaces it names merged with the
+// foregrounds every palette shares, plus its accent.
+func (tk *tokens) colours(name string) (map[string]string, string, error) {
+	p, ok := tk.Palettes[name]
 	if !ok {
-		return nil, fmt.Errorf("no palette %q", tint)
+		return nil, "", fmt.Errorf("no palette %q", name)
+	}
+
+	surfaces, ok := tk.Surfaces[p.Surfaces]
+	if !ok {
+		return nil, "", fmt.Errorf("palette %q names unknown surfaces %q", name, p.Surfaces)
 	}
 
 	merged := make(map[string]string, len(surfaces)+len(tk.Foreground))
@@ -204,13 +220,13 @@ func (tk *tokens) palette(tint string) (map[string]string, error) {
 		merged[k] = v
 	}
 
-	return merged, nil
+	return merged, p.Accent, nil
 }
 
 // allFiles is everything the generator writes: the theme as shipped, plus the
 // variant trees the installer picks from.
 func allFiles(tk *tokens) (map[string]string, error) {
-	out, err := build(tk, defaultTint, defaultAccent, "rounded", defaultTitlebar, defaultButtons)
+	out, err := build(tk, defaultPalette, defaultSurfaces, defaultTitlebar, defaultButtons)
 	if err != nil {
 		return nil, err
 	}
@@ -233,33 +249,31 @@ func allFiles(tk *tokens) (map[string]string, error) {
 func variants(tk *tokens) (map[string]string, error) {
 	out := map[string]string{}
 
-	for tint := range tk.Palettes {
-		for accent := range tk.Accents {
-			app, shell, err := schemes(tk, tint, accent)
-			if err != nil {
-				return nil, err
-			}
-
-			dir := variantDir + "/colors/" + tint + "-" + accent
-			out[dir+"/VanillaBoxDark.colors"] = app
-			out[dir+"/colors"] = shell
+	for name := range tk.Palettes {
+		app, shell, err := schemes(tk, name)
+		if err != nil {
+			return nil, err
 		}
+
+		dir := variantDir + "/colors/" + name
+		out[dir+"/VanillaBoxDark.colors"] = app
+		out[dir+"/colors"] = shell
 
 		// The window decoration is the only artwork that paints a palette colour
 		// rather than deferring to the scheme, so it is the only thing a tint
 		// generates beyond ini files. It is also the only artwork the titlebar
 		// shape reaches, which makes it a product of the two.
 		for shape := range tk.DecorationShape {
-			deco, err := tk.decoration(tint, shape)
+			deco, err := tk.decoration(name, shape)
 			if err != nil {
 				return nil, err
 			}
-			out[variantDir+"/decoration/"+tint+"-"+shape+"/decoration.svg"] = deco
+			out[variantDir+"/decoration/"+name+"-"+shape+"/decoration.svg"] = deco
 		}
 	}
 
-	for accent, hex := range tk.Accents {
-		out[variantDir+"/defaults/"+accent+"/defaults"] = lookAndFeelDefaults(hex, "", "")
+	for name, p := range tk.Palettes {
+		out[variantDir+"/defaults/"+name+"/defaults"] = lookAndFeelDefaults(p.Accent, "", "")
 	}
 
 	for name := range tk.ButtonStyles {
@@ -276,7 +290,7 @@ func variants(tk *tokens) (map[string]string, error) {
 	// switches draw their opaque copies out of whichever shape is chosen, so the
 	// rounded tree has to exist as a variant and not only as the base.
 	for shape := range tk.SurfaceShape {
-		files, err := surfaces(tk, defaultTint, defaultAccent, shape)
+		files, err := surfaces(tk, defaultPalette, shape)
 		if err != nil {
 			return nil, err
 		}
@@ -293,8 +307,8 @@ func variants(tk *tokens) (map[string]string, error) {
 //
 // Colours here are only the stylesheet fallbacks an editor shows, so the tint
 // makes no difference to the bytes and the default one is used throughout.
-func surfaces(tk *tokens, tint, accent, shape string) (map[string]string, error) {
-	palette, err := tk.palette(tint)
+func surfaces(tk *tokens, name, shape string) (map[string]string, error) {
+	palette, accent, err := tk.colours(name)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +324,7 @@ func surfaces(tk *tokens, tint, accent, shape string) (map[string]string, error)
 		}
 	}
 
-	for path, c := range controls(palette, tk.Accents[accent], tk.Status, radii["button"]) {
+	for path, c := range controls(palette, accent, tk.Status, radii["button"]) {
 		out["widgets/"+path] = c.render()
 	}
 
@@ -350,17 +364,13 @@ func frames(tk *tokens, palette map[string]string, radii map[string]float64, tra
 
 // schemes renders the application colour scheme and the Plasma style's copy for
 // one tint and accent. They differ only in how they name themselves.
-func schemes(tk *tokens, tint, accent string) (app, shell string, err error) {
-	palette, err := tk.palette(tint)
+func schemes(tk *tokens, name string) (app, shell string, err error) {
+	palette, accent, err := tk.colours(name)
 	if err != nil {
 		return "", "", err
 	}
-	hex, ok := tk.Accents[accent]
-	if !ok {
-		return "", "", fmt.Errorf("no accent %q", accent)
-	}
 
-	base := scheme{palette: palette, accent: hex, status: tk.Status, Name: "Vanilla Box Dark"}
+	base := scheme{palette: palette, accent: accent, status: tk.Status, Name: "Vanilla Box Dark"}
 
 	a, s := base, base
 	a.SchemeKey = "VanillaBoxDark"
@@ -381,7 +391,7 @@ func (tk *tokens) titlebarButtons(name string) (map[string]string, error) {
 		return nil, fmt.Errorf("no button style %q", name)
 	}
 
-	palette, err := tk.palette(defaultTint)
+	palette, _, err := tk.colours(defaultPalette)
 	if err != nil {
 		return nil, err
 	}
@@ -428,8 +438,8 @@ func (tk *tokens) titlebarButtons(name string) (map[string]string, error) {
 }
 
 // decoration renders the window frame for one tint and decoration shape.
-func (tk *tokens) decoration(tint, decoShape string) (string, error) {
-	palette, err := tk.palette(tint)
+func (tk *tokens) decoration(name, decoShape string) (string, error) {
+	palette, _, err := tk.colours(name)
 	if err != nil {
 		return "", err
 	}
@@ -446,14 +456,10 @@ func (tk *tokens) decoration(tint, decoShape string) (string, error) {
 
 // build returns every generated file for one point in the variant space, keyed
 // by repository-relative slash path.
-func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[string]string, error) {
-	palette, err := tk.palette(tint)
+func build(tk *tokens, name, shape, decoShape, buttons string) (map[string]string, error) {
+	palette, acc, err := tk.colours(name)
 	if err != nil {
 		return nil, err
-	}
-	acc, ok := tk.Accents[accent]
-	if !ok {
-		return nil, fmt.Errorf("no accent %q", accent)
 	}
 	out := map[string]string{}
 
@@ -472,7 +478,7 @@ func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[stri
 	// The theme root carries the translucent artwork. Plasma falls back to the
 	// opaque/ and solid/ prefixes itself when compositing is off, so both ship
 	// whatever the transparency options are set to.
-	surf, err := surfaces(tk, tint, accent, shape)
+	surf, err := surfaces(tk, name, shape)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +486,7 @@ func build(tk *tokens, tint, accent, shape, decoShape, buttons string) (map[stri
 		out[style+"/"+path] = content
 	}
 
-	deco, err := tk.decoration(tint, decoShape)
+	deco, err := tk.decoration(name, decoShape)
 	if err != nil {
 		return nil, err
 	}

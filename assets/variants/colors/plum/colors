@@ -17,9 +17,9 @@ IntensityAmount=0
 IntensityEffect=0
 
 [Colors:Button]
-BackgroundAlternate=42,42,42
-BackgroundNormal=47,47,47
-DecorationFocus=47,47,47
+BackgroundAlternate=44,40,46
+BackgroundNormal=50,45,53
+DecorationFocus=50,45,53
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -31,9 +31,9 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [Colors:Complementary]
-BackgroundAlternate=42,42,42
-BackgroundNormal=41,41,41
-DecorationFocus=37,37,37
+BackgroundAlternate=44,40,46
+BackgroundNormal=43,39,45
+DecorationFocus=39,35,41
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -45,9 +45,9 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [Colors:Header]
-BackgroundAlternate=42,42,42
-BackgroundNormal=41,41,41
-DecorationFocus=41,41,41
+BackgroundAlternate=44,40,46
+BackgroundNormal=43,39,45
+DecorationFocus=43,39,45
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -73,9 +73,9 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [Colors:Tooltip]
-BackgroundAlternate=56,56,56
-BackgroundNormal=47,47,47
-DecorationFocus=47,47,47
+BackgroundAlternate=59,53,63
+BackgroundNormal=50,45,53
+DecorationFocus=50,45,53
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -87,9 +87,9 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [Colors:View]
-BackgroundAlternate=42,42,42
-BackgroundNormal=20,20,20
-DecorationFocus=37,37,37
+BackgroundAlternate=44,40,46
+BackgroundNormal=22,19,24
+DecorationFocus=39,35,41
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -101,9 +101,9 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [Colors:Window]
-BackgroundAlternate=42,42,42
-BackgroundNormal=41,41,41
-DecorationFocus=41,41,41
+BackgroundAlternate=44,40,46
+BackgroundNormal=43,39,45
+DecorationFocus=43,39,45
 DecorationHover=158,158,158
 ForegroundActive=162,136,176
 ForegroundInactive=138,135,130
@@ -115,7 +115,7 @@ ForegroundPositive=108,187,124
 ForegroundVisited=179,159,126
 
 [General]
-ColorScheme=VanillaBoxDark
+ColorScheme=Vanilla Box Dark
 Name=Vanilla Box Dark
 shadeSortColumn=true
 
@@ -123,9 +123,9 @@ shadeSortColumn=true
 contrast=4
 
 [WM]
-activeBackground=41,41,41
+activeBackground=43,39,45
 activeBlend=232,228,221
 activeForeground=232,228,221
-inactiveBackground=41,41,41
+inactiveBackground=43,39,45
 inactiveBlend=138,135,130
 inactiveForeground=138,135,130

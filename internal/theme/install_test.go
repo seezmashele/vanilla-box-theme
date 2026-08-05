@@ -248,67 +248,77 @@ func TestTransparencyTogglesActIndependently(t *testing.T) {
 	}
 }
 
-// TestTintAndAccentAreIndependent installs a cross of the two colour axes and
-// checks each reaches what it owns: the tint the surfaces, the accent the
-// selection. They are separate options resolved through one path, so the risk
-// worth testing is that one silently drags the other along.
-func TestTintAndAccentAreIndependent(t *testing.T) {
-	// Surfaces from spec/tokens.json; slate and rose are tints of the same greys.
-	surfaces := map[string]string{
-		"neutral": "41,41,41",
-		"slate":   "39,42,47",
-		"rose":    "43,39,39",
-	}
-	accents := map[string]string{
-		"sand":  "174,142,108",
-		"steel": "125,147,173",
-		"plum":  "162,136,176",
+// TestPaletteCarriesItsAccent checks the merged colour axis: one choice has to
+// reach the surfaces, the shell's highlight, the KDE accent and the titlebar
+// paint together. They were separate options once, and the risk in joining them
+// is that one of the four quietly keeps the default.
+func TestPaletteCarriesItsAccent(t *testing.T) {
+	palettes := map[string]struct{ surface, accent string }{
+		"neutral": {"41,41,41", "174,142,108"},
+		"ash":     {"41,41,41", "143,143,143"},
+		"slate":   {"39,42,47", "125,147,173"},
+		"moss":    {"39,42,39", "140,168,130"},
+		"rose":    {"43,39,39", "184,119,106"},
+		"plum":    {"43,39,45", "162,136,176"},
 	}
 
-	for tint, surface := range surfaces {
-		for accent, highlight := range accents {
-			t.Run(tint+"-"+accent, func(t *testing.T) {
-				theme, style := installShipped(t, func(ch Choices) {
-					ch.Values["tint"] = tint
-					ch.Values["accent"] = accent
-				})
-
-				shell := readFile(t, filepath.Join(style, "colors"))
-				if !strings.Contains(shell, "[Colors:Window]\nBackgroundAlternate") {
-					t.Fatal("colors is not the scheme this test expects")
-				}
-				if !strings.Contains(shell, "BackgroundNormal="+surface) {
-					t.Errorf("shell colors missing the %s surface %s", tint, surface)
-				}
-				if !strings.Contains(shell, "[Colors:Selection]\nBackgroundAlternate="+highlight) {
-					t.Errorf("shell colors missing the %s selection %s", accent, highlight)
-				}
-
-				// The application scheme is a separate file for a separate
-				// consumer, and must carry the same pair.
-				app := readFile(t, filepath.Join(
-					theme.TargetPath(theme.Components[0])))
-				if !strings.Contains(app, "BackgroundNormal="+surface) ||
-					!strings.Contains(app, "[Colors:Selection]\nBackgroundAlternate="+highlight) {
-					t.Error("the application scheme disagrees with the shell's copy")
-				}
-
-				// The KDE accent lives in the look-and-feel defaults, and is the
-				// half of the accent that reaches applications.
-				defaults := readFile(t, filepath.Join(
-					theme.TargetPath(theme.Components[3]), "contents", "defaults"))
-				if !strings.Contains(defaults, "AccentColor="+highlight) {
-					t.Errorf("look-and-feel defaults missing AccentColor=%s", highlight)
-				}
-
-				// The window decoration is the only artwork a tint repaints.
-				deco := readFile(t, filepath.Join(
-					theme.TargetPath(theme.Components[2]), "decoration.svg"))
-				if !strings.Contains(deco, hexOf(surface)) {
-					t.Errorf("decoration.svg is not painted in the %s surface", tint)
-				}
+	for name, want := range palettes {
+		t.Run(name, func(t *testing.T) {
+			theme, style := installShipped(t, func(ch Choices) {
+				ch.Values["palette"] = name
 			})
-		}
+
+			shell := readFile(t, filepath.Join(style, "colors"))
+			if !strings.Contains(shell, "BackgroundNormal="+want.surface) {
+				t.Errorf("shell colors missing the %s surface %s", name, want.surface)
+			}
+			if !strings.Contains(shell, "[Colors:Selection]\nBackgroundAlternate="+want.accent) {
+				t.Errorf("shell colors missing the %s accent %s", name, want.accent)
+			}
+
+			app := readFile(t, theme.TargetPath(theme.Components[0]))
+			if !strings.Contains(app, "BackgroundNormal="+want.surface) ||
+				!strings.Contains(app, "[Colors:Selection]\nBackgroundAlternate="+want.accent) {
+				t.Error("the application scheme disagrees with the shell's copy")
+			}
+
+			defaults := readFile(t, filepath.Join(
+				theme.TargetPath(theme.Components[3]), "contents", "defaults"))
+			if !strings.Contains(defaults, "AccentColor="+want.accent) {
+				t.Errorf("look-and-feel defaults missing AccentColor=%s", want.accent)
+			}
+
+			deco := readFile(t, filepath.Join(
+				theme.TargetPath(theme.Components[2]), "decoration.svg"))
+			if !strings.Contains(deco, hexOf(want.surface)) {
+				t.Errorf("decoration.svg is not painted in the %s surface", name)
+			}
+		})
+	}
+}
+
+// TestNeutralAndAshDifferOnlyInTheirAccent is the pair that makes the merged
+// axis worth having: identical surfaces, and the whole difference is whether
+// anything on screen is coloured. If the accent stopped reaching the scheme,
+// the two would become the same theme and nothing else would notice.
+func TestNeutralAndAshDifferOnlyInTheirAccent(t *testing.T) {
+	read := func(name string) string {
+		_, style := installShipped(t, func(ch Choices) { ch.Values["palette"] = name })
+
+		return readFile(t, filepath.Join(style, "colors"))
+	}
+
+	neutral, ash := read("neutral"), read("ash")
+
+	if neutral == ash {
+		t.Fatal("neutral and ash produced the same colour scheme")
+	}
+	if !strings.Contains(neutral, "BackgroundNormal=41,41,41") ||
+		!strings.Contains(ash, "BackgroundNormal=41,41,41") {
+		t.Error("neutral and ash should share the grey surfaces")
+	}
+	if !strings.Contains(ash, "[Colors:Selection]\nBackgroundAlternate=143,143,143") {
+		t.Error("ash should have no colour anywhere, including its selection")
 	}
 }
 
@@ -375,12 +385,12 @@ func TestSurfaceShapeReachesEverySurface(t *testing.T) {
 // TestTitlebarShapeIsAProductOfTheTint covers the decoration, which is the one
 // piece of artwork two axes reach at once: the tint paints it and the titlebar
 // shape decides its corners.
-func TestTitlebarShapeIsAProductOfTheTint(t *testing.T) {
+func TestTitlebarShapeIsAProductOfThePalette(t *testing.T) {
 	for _, tint := range []string{"neutral", "slate"} {
 		for _, shape := range []string{"square", "rounded"} {
 			t.Run(tint+"-"+shape, func(t *testing.T) {
 				theme, _ := installShipped(t, func(ch Choices) {
-					ch.Values["tint"] = tint
+					ch.Values["palette"] = tint
 					ch.Values["titlebar"] = shape
 				})
 
