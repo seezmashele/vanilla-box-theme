@@ -30,6 +30,22 @@ type scheme struct {
 	accent  string
 	status  map[string]string
 
+	// SidebarOnView puts the window background on the view colour, so a places
+	// panel stops reading as a lighter strip beside the file list it belongs to.
+	//
+	// KColorScheme has no sidebar role. Dolphin's panel — and every other dock
+	// panel in a KDE app — paints with the window background, which is why it
+	// matches the toolbar rather than the list. Moving that one role is the only
+	// lever there is, so this reaches every window background, not just panels.
+	//
+	// Header deliberately stays behind, which is the one place this breaks the
+	// rule that Window, Header and Complementary move together: keeping the
+	// toolbar on the chrome colour is the whole point of the option, since a
+	// sidebar that merges with the list still wants a strip above it that does
+	// not. Complementary follows Window so the pair a widget might resolve
+	// against cannot disagree.
+	SidebarOnView bool
+
 	SchemeKey string
 	Name      string
 }
@@ -38,9 +54,16 @@ func (s scheme) render() string {
 	p, st := s.palette, s.status
 	a := map[string]string{"highlight": s.accent}
 
+	window := p["background"]
+	if s.SidebarOnView {
+		window = p["view"]
+	}
+
 	sets := []colorSet{
 		{Name: "Button", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["elevated"], DecorationFocus: p["elevated"]},
-		{Name: "Complementary", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["background"], DecorationFocus: p["focusDim"]},
+		{Name: "Complementary", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: window, DecorationFocus: p["focusDim"]},
+		// Header is the one background that does not follow the sidebar: the
+		// toolbar above a merged panel and list is what keeps them readable.
 		{Name: "Header", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["background"], DecorationFocus: p["background"]},
 		{
 			Name: "Selection", BackgroundAlt: a["highlight"], BackgroundNormal: a["highlight"],
@@ -54,7 +77,7 @@ func (s scheme) render() string {
 		// visible focus ring.
 		{Name: "Tooltip", BackgroundAlt: p["elevatedAlt"], BackgroundNormal: p["view"], DecorationFocus: p["view"]},
 		{Name: "View", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["view"], DecorationFocus: p["focusDim"]},
-		{Name: "Window", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["background"], DecorationFocus: p["background"]},
+		{Name: "Window", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: window, DecorationFocus: window},
 	}
 
 	var b strings.Builder

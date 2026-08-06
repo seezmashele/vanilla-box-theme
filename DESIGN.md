@@ -31,6 +31,7 @@ instead, because **each axis owns a disjoint set of files**.
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
+| Sidebar | `window` | runtime, as a product with the palette | the two `colors` files |
 | Container shape | `rounded` | baked | the four frames across three prefixes |
 | Element shape | `rounded` | baked | `button`, `lineedit`, `viewitem` |
 | Titlebar shape | `rounded` | baked | `aurorae/decoration.svg`, as a product with the palette |
@@ -153,6 +154,8 @@ rather than by count.
 - `Window`, `Header` and `Complementary` backgrounds move together within a surface set. Plasma
   resolves a surface against one of the three depending on the widget's colour set; keeping them
   means never having to work out which. The current scheme already satisfies this at `41,41,41`.
+  The sidebar option is the one sanctioned exception, and it breaks the rule in the narrowest way
+  it can — see below.
 - `.ColorScheme-ButtonHover` reads `[Colors:Button] DecorationHover`. `button.svg` says `#9e9e9e`
   and the scheme says `158,158,158`; both must be emitted from one token so they cannot drift.
 - `Colors:Selection` comes from the palette's accent, not from its surfaces. It is the one role
@@ -165,6 +168,26 @@ rather than by count.
 - The colours embedded in each SVG's `current-color-scheme` block are fallbacks — what an editor
   shows. They should stay accurate for the default palette, but do not drive rendering.
   `TestShippedStyleFollowsTheColorScheme` guards the deferral itself.
+
+### The sidebar option
+
+KColorScheme has no sidebar role. A places panel — Dolphin's, Kate's, anything in a `QDockWidget` —
+paints with the window background, which is why it matches the toolbar rather than the list beside
+it. So "make the sidebar the view colour" can only be spelled as "move `[Colors:Window]
+BackgroundNormal` to the view colour", and that reaches every window background in every Qt app,
+not just panels. Dialogs, settings pages and message boxes go dark with it. This is why it is an
+option and not the default.
+
+`Header` deliberately does not follow. It is the one place the move-together rule above is broken,
+and breaking it is the point: a sidebar merged into the file list still wants a toolbar above it
+that is not, and `Header` is the role that draws it. `Complementary` does follow `Window`, so of
+the two roles a widget might resolve a plain window surface against, neither can disagree with the
+other.
+
+The choice is a product with the palette rather than an overlay, because both `colors` files carry
+the window background and there is no file to swap that does not also carry the tint —
+`variants/colors/{palette}-{sidebar}/`, ten directories for five palettes.
+`TestSidebarMovesOnlyTheWindowBackground` pins which sections are allowed to move.
 
 Surfaces are written as explicit values per set, not derived by a hue or chroma transform. A
 computed shift behaves badly at the lightness of `#141414`, and the near-blacks want hand-tuning.

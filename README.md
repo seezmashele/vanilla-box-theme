@@ -129,6 +129,7 @@ adding an option means saying where it belongs rather than editing a screen.
 | Preference | Values | Changes |
 | --- | --- | --- |
 | Surfaces | Neutral, Slate, Plum, Rose, Forest | the tint of every surface — and, quietly, the accent that goes with it |
+| Sidebar background | Match the window, Match the file list | places panels in Dolphin, Kate and friends — and every other window background |
 | Panel & popup corners | Rounded, Square | the panel strip, menus, tooltips, applet backgrounds |
 | Button & input corners | Rounded, Square | buttons, search bars, list items |
 | Titlebar corners | Rounded, Square | the top corners of the window frame |
@@ -141,6 +142,15 @@ A choice's default is `"defaultValue"` in `theme.json` rather than whichever val
 listed first. On the corner preferences the two agree: all three list Rounded first and install it,
 so the cursor starts on the shipped answer. Accepting each prompt gives Neutral, rounded corners
 throughout, traffic-light window buttons, and your own icons left alone.
+
+**Sidebar background** is blunter than its name suggests, and worth understanding before you switch
+it. KDE colour schemes have no sidebar role: a places panel paints with the *window* background,
+which is why it matches the toolbar rather than the file list next to it. Making it match the list
+means moving the window background itself, so every window background moves — dialogs, settings
+pages, message boxes. Toolbars and headers stay put, because they read from a separate role, so a
+merged panel and list still sit under a strip that reads as chrome. If you want the Dolphin look
+and do not mind a darker desktop generally, take it; otherwise the default leaves KDE's own
+arrangement alone.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of

@@ -192,6 +192,71 @@ func TestUnoutlinedFramesAreUntouched(t *testing.T) {
 	}
 }
 
+// TestSidebarMovesOnlyTheWindowBackground pins what the sidebar choice is
+// allowed to touch. KColorScheme has no sidebar role — a places panel paints
+// with the window background — so the option works by moving that one role, and
+// the risk is it dragging the rest of the scheme with it.
+//
+// Header staying put is the point: a sidebar merged with the file list still
+// wants a toolbar above it that is not.
+func TestSidebarMovesOnlyTheWindowBackground(t *testing.T) {
+	tk, err := loadTokens(filepath.Join("../..", "spec", "tokens.json"))
+	if err != nil {
+		t.Fatalf("loadTokens: %v", err)
+	}
+
+	surfaces := tk.Surfaces[tk.Palettes[defaultPalette].Surfaces]
+	chrome, view := rgb(surfaces["background"]), rgb(surfaces["view"])
+
+	windowed, _, err := schemes(tk, defaultPalette, sidebarWindow)
+	if err != nil {
+		t.Fatalf("schemes: %v", err)
+	}
+	viewed, _, err := schemes(tk, defaultPalette, sidebarView)
+	if err != nil {
+		t.Fatalf("schemes: %v", err)
+	}
+
+	for _, tc := range []struct {
+		section     string
+		off, on     string
+		description string
+	}{
+		{"Window", chrome, view, "the role the sidebar paints with"},
+		{"Complementary", chrome, view, "follows Window so the two cannot disagree"},
+		{"Header", chrome, chrome, "the toolbar stays on the chrome colour"},
+		{"View", view, view, "already the view colour; the option is what meets it"},
+	} {
+		if got := background(viewed, tc.section); got != tc.on {
+			t.Errorf("sidebar=view: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
+				tc.section, got, tc.on, tc.description)
+		}
+		if got := background(windowed, tc.section); got != tc.off {
+			t.Errorf("sidebar=window: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
+				tc.section, got, tc.off, tc.description)
+		}
+	}
+}
+
+// background reads one section's BackgroundNormal out of a rendered scheme.
+func background(ini, section string) string {
+	rest, ok := strings.CutPrefix(ini[strings.Index(ini, "[Colors:"+section+"]"):], "[Colors:"+section+"]\n")
+	if !ok {
+		return ""
+	}
+
+	for _, line := range strings.Split(rest, "\n") {
+		if v, found := strings.CutPrefix(line, "BackgroundNormal="); found {
+			return v
+		}
+		if strings.HasPrefix(line, "[") {
+			break
+		}
+	}
+
+	return ""
+}
+
 // TestEveryMappedSourceIsVendored is the failure that would otherwise wait
 // until someone else ran the generator: a mapping is a line of JSON, and the
 // artwork it names has to be fetched separately and committed.

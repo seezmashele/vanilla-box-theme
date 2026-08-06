@@ -123,6 +123,13 @@ const (
 	defaultTitlebar   = "square"
 	defaultButtons    = "mac"
 
+	// The two points on the sidebar axis. A places panel paints with the window
+	// background, so "view" is the one that moves that background onto the view
+	// colour and "window" is leaving it where it is.
+	sidebarWindow  = "window"
+	sidebarView    = "view"
+	defaultSidebar = sidebarWindow
+
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30
 	titleBorder = 1
@@ -316,14 +323,18 @@ func variants(tk *tokens) (map[string]string, error) {
 	out := map[string]string{}
 
 	for name := range tk.Palettes {
-		app, shell, err := schemes(tk, name)
-		if err != nil {
-			return nil, err
-		}
+		// A product with the sidebar choice: both files carry the window
+		// background, and that is the role the choice moves.
+		for _, sidebar := range []string{sidebarWindow, sidebarView} {
+			app, shell, err := schemes(tk, name, sidebar)
+			if err != nil {
+				return nil, err
+			}
 
-		dir := variantDir + "/colors/" + name
-		out[dir+"/VanillaBoxDark.colors"] = app
-		out[dir+"/colors"] = shell
+			dir := variantDir + "/colors/" + name + "-" + sidebar
+			out[dir+"/VanillaBoxDark.colors"] = app
+			out[dir+"/colors"] = shell
+		}
 
 		// The window decoration is the only artwork that paints a palette colour
 		// rather than deferring to the scheme, so it is the only thing a tint
@@ -473,13 +484,16 @@ func frames(tk *tokens, palette map[string]string, radii map[string]float64, tra
 
 // schemes renders the application colour scheme and the Plasma style's copy for
 // one tint and accent. They differ only in how they name themselves.
-func schemes(tk *tokens, name string) (app, shell string, err error) {
+func schemes(tk *tokens, name, sidebar string) (app, shell string, err error) {
 	palette, accent, err := tk.colours(name)
 	if err != nil {
 		return "", "", err
 	}
 
-	base := scheme{palette: palette, accent: accent, status: tk.Status, Name: "Vanilla Box Dark"}
+	base := scheme{
+		palette: palette, accent: accent, status: tk.Status, Name: "Vanilla Box Dark",
+		SidebarOnView: sidebar == sidebarView,
+	}
 
 	a, s := base, base
 	a.SchemeKey = "VanillaBoxDark"
@@ -575,7 +589,10 @@ func build(tk *tokens, name, containerShape, elementShape, decoShape, buttons st
 
 	// The application scheme names itself by id; the Plasma style's copy names
 	// itself the way Plasma's own themes do, by display name.
-	base := scheme{palette: palette, accent: acc, status: tk.Status, Name: "Vanilla Box Dark"}
+	base := scheme{
+		palette: palette, accent: acc, status: tk.Status, Name: "Vanilla Box Dark",
+		SidebarOnView: defaultSidebar == sidebarView,
+	}
 
 	app := base
 	app.SchemeKey = "VanillaBoxDark"

@@ -14,7 +14,7 @@
       "required": true,
       "resolved": [
         {
-          "source": "variants/colors/{palette}/VanillaBoxDark.colors",
+          "source": "variants/colors/{palette}-{sidebar}/VanillaBoxDark.colors",
           "target": ""
         }
       ]
@@ -59,6 +59,26 @@
               "id": "forest",
               "name": "Forest",
               "swatch": ["#252b25", "#343c34"]
+            }
+          ]
+        },
+        {
+          "id": "sidebar",
+          "name": "Sidebar background",
+          "description": "Places panels in Dolphin, Kate and other KDE apps",
+          "group": "Surface colour",
+          "kind": "select",
+          "defaultValue": "window",
+          "values": [
+            {
+              "id": "window",
+              "name": "Match the window",
+              "description": "a lighter strip beside the file list, as KDE ships it"
+            },
+            {
+              "id": "view",
+              "name": "Match the file list",
+              "description": "sidebar and list merge into one dark field"
             }
           ]
         },
@@ -155,7 +175,7 @@
       ],
       "resolved": [
         {
-          "source": "variants/colors/{palette}/colors",
+          "source": "variants/colors/{palette}-{sidebar}/colors",
           "target": "colors"
         }
       ]
