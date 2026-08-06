@@ -152,10 +152,6 @@ func TestPreferencesIsTheFirstScreen(t *testing.T) {
 	if m.screen != screenOptions {
 		t.Fatalf("screen = %v, want screenOptions", m.screen)
 	}
-	if got := m.installCount(); got != 2 {
-		t.Errorf("installCount() = %d, want 2 (the two whose files are present)", got)
-	}
-
 	view := renderView(m)
 	if strings.Contains(view, "Choose what to install") {
 		t.Error("the component checklist should be gone")

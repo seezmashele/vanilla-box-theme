@@ -343,22 +343,6 @@ func (t *Theme) TargetPath(c Component) string {
 	return filepath.Join(dataDir(), c.Target, filepath.Base(c.Source))
 }
 
-// DisplayTargetPath is TargetPath with the home directory shortened to "~", for
-// the confirmation screen.
-func (t *Theme) DisplayTargetPath(c Component) string {
-	path := t.TargetPath(c)
-
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return path
-	}
-	if rel, err := filepath.Rel(home, path); err == nil && !filepath.IsAbs(rel) {
-		return filepath.Join("~", rel)
-	}
-
-	return path
-}
-
 // dataDir is the XDG data directory theme components are installed into.
 func dataDir() string {
 	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {

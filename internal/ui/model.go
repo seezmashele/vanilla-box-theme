@@ -466,19 +466,6 @@ func (m *Model) updateBindings() {
 	m.keys.Quit.SetEnabled(m.screen != screenInstall)
 }
 
-// installCount is how many components will actually be written. Components
-// whose files are missing are not among them.
-func (m Model) installCount() int {
-	var n int
-	for _, it := range m.items {
-		if it.selected {
-			n++
-		}
-	}
-
-	return n
-}
-
 // contentWidth is the width available inside the app padding.
 func (m Model) contentWidth() int {
 	const padding = 4
