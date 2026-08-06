@@ -29,36 +29,36 @@
       "options": [
         {
           "id": "palette",
-          "name": "Colour",
-          "description": "Surfaces and the accent that goes with them",
-          "group": "Colour",
+          "name": "Surfaces",
+          "description": "The tint of the panel, popups and window backgrounds",
+          "group": "Surface colour",
           "kind": "select",
           "defaultValue": "neutral",
           "values": [
             {
               "id": "neutral",
               "name": "Neutral",
-              "swatch": "#ae8e6c"
+              "swatch": ["#292929", "#383838"]
             },
             {
               "id": "slate",
               "name": "Slate",
-              "swatch": "#7d93ad"
+              "swatch": ["#272a2f", "#363b42"]
             },
             {
               "id": "plum",
               "name": "Plum",
-              "swatch": "#a288b0"
+              "swatch": ["#2b272d", "#3b353f"]
             },
             {
               "id": "rose",
               "name": "Rose",
-              "swatch": "#c07a8c"
+              "swatch": ["#2b2729", "#3b3538"]
             },
             {
               "id": "forest",
               "name": "Forest",
-              "swatch": "#4a6d41"
+              "swatch": ["#252b25", "#343c34"]
             }
           ]
         },

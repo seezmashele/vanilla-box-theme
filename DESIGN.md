@@ -712,7 +712,8 @@ say it.
 
 ### One question at a time
 
-Preferences are asked over pages rather than on one screen: colour, shape, transparency, icons.
+Preferences are asked over pages rather than on one screen: surface colour, shape, transparency,
+icons.
 Each option declares its `group` in the manifest, and the pages are the distinct groups in the
 order they first become visible.
 

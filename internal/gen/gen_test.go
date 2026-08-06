@@ -207,12 +207,15 @@ func TestGlyphSizeIsWhatItSays(t *testing.T) {
 	}
 }
 
-// TestSwatchesMatchTheAccents keeps the two hand-written copies of a colour in
-// step. The manifest carries a swatch so the preferences screen can draw the
-// palette it is offering, and spec/tokens.json is where that colour actually
-// comes from — a swatch that drifts shows the user one colour and installs
+// TestSwatchesMatchTheSurfaces keeps the two hand-written copies of a colour in
+// step. The manifest carries swatches so the preferences screen can draw the
+// palette it is offering, and spec/tokens.json is where those colours actually
+// come from — a swatch that drifts shows the user one colour and installs
 // another, which is worse than showing none.
-func TestSwatchesMatchTheAccents(t *testing.T) {
+//
+// The pair is the panel background and the elevated surface, in that order:
+// what the desktop is mostly made of, and the shade sitting on top of it.
+func TestSwatchesMatchTheSurfaces(t *testing.T) {
 	const root = "../.."
 
 	tk, err := loadTokens(filepath.Join(root, "spec", "tokens.json"))
@@ -230,8 +233,8 @@ func TestSwatchesMatchTheAccents(t *testing.T) {
 			Options []struct {
 				ID     string `json:"id"`
 				Values []struct {
-					ID     string `json:"id"`
-					Swatch string `json:"swatch"`
+					ID     string   `json:"id"`
+					Swatch []string `json:"swatch"`
 				} `json:"values"`
 			} `json:"options"`
 		} `json:"components"`
@@ -259,9 +262,25 @@ func TestSwatchesMatchTheAccents(t *testing.T) {
 
 				seen++
 
-				if v.Swatch != p.Accent {
-					t.Errorf("%s swatch is %s but its accent is %s — "+
-						"edit spec/tokens.json and assets/theme.json together", v.ID, v.Swatch, p.Accent)
+				surfaces, ok := tk.Surfaces[p.Surfaces]
+				if !ok {
+					t.Errorf("palette %q names unknown surfaces %q", v.ID, p.Surfaces)
+
+					continue
+				}
+
+				want := []string{surfaces["background"], surfaces["elevatedAlt"]}
+				if len(v.Swatch) != len(want) {
+					t.Errorf("%s has %d swatches, want %d", v.ID, len(v.Swatch), len(want))
+
+					continue
+				}
+
+				for i, got := range v.Swatch {
+					if got != want[i] {
+						t.Errorf("%s swatch %d is %s but its surface is %s — "+
+							"edit spec/tokens.json and assets/theme.json together", v.ID, i, got, want[i])
+					}
 				}
 			}
 		}

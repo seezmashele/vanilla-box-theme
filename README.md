@@ -104,7 +104,7 @@ The preferences are the only thing to decide, and they are asked over four pages
 
 | Page | Asks |
 | --- | --- |
-| Colour | the palette |
+| Surface colour | the palette |
 | Shape | panel & popup corners, button & input corners, titlebar corners, window buttons |
 | Transparency | the three switches |
 | Icons | whether to install the icon theme |
@@ -113,17 +113,22 @@ The preferences are the only thing to decide, and they are asked over four pages
 every choice is listed under it, so the alternatives are visible without operating anything. On a
 short terminal a page scrolls, marking how much sits above and below.
 
-A value may carry a `"swatch"` — a hex colour the screen draws as a small filled box beside it. The
-palettes use it, because "Plum" only tells you which colour if you already know. The colour is
-display only, and a test checks each swatch against the accent in `spec/tokens.json` so the box
-cannot show one colour while the install writes another.
+A value may carry a `"swatch"` — hex colours the screen draws as small filled boxes beside it. The
+palettes use it, because "Plum" only tells you which colour if you already know. Each shows the
+pair the page is actually about: the panel background and the elevated surface above it. The
+colours are display only, and a test checks them against `spec/tokens.json` so a box cannot show
+one colour while the install writes another.
+
+They are genuinely subtle. The five panel colours sit within 3–11 units of each other out of a
+possible 441, because a tinted dark surface is a dark surface first — that closeness is the design
+rather than a rendering problem, and it is why the boxes are two cells wide and come in pairs.
 
 Which page a preference appears on is `"group"` in `theme.json`, not something the UI decides, so
 adding an option means saying where it belongs rather than editing a screen.
 
 | Preference | Values | Changes |
 | --- | --- | --- |
-| Colour | Neutral, Slate, Plum, Rose, Forest | surfaces **and** the accent that goes with them |
+| Surfaces | Neutral, Slate, Plum, Rose, Forest | the tint of every surface — and, quietly, the accent that goes with it |
 | Panel & popup corners | Square, Rounded | the panel strip, menus, tooltips, applet backgrounds |
 | Button & input corners | Square, Rounded | buttons, search bars, list items |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |

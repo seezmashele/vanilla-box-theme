@@ -1,55 +1,52 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"vanillabox/internal/theme"
 )
 
-// confirmView is the last stop before installing: exactly what will be written,
-// and where.
+// confirmView is the last stop before installing: the answers, read back.
+//
+// It lists choices rather than components and destinations. What a preference
+// is called is what the user was asked, so reading the answers back in those
+// words is the only way they can check them against what they meant — where a
+// list of packages and paths asks them to verify something they never chose.
 func (m Model) confirmView() string {
 	var b strings.Builder
 
 	b.WriteString(m.heading("Review"))
 	b.WriteString("\n")
-	b.WriteString(m.styles.subtitle.Render(fmt.Sprintf(
-		"%d component(s) will be installed:", m.installCount(),
-	)))
+	b.WriteString(m.styles.subtitle.Render("Your choices:"))
 	b.WriteString("\n\n")
 
-	for _, it := range m.items {
-		if !it.selected {
-			continue
-		}
+	// Walked page by page, so the answers come back in the order they were
+	// asked rather than in the order the manifest happens to declare them.
+	// pageOptions reads m.page, and the receiver is a copy, so moving it here
+	// costs nothing and is not visible to the caller.
+	for i := range m.pages() {
+		m.page = i
 
-		b.WriteString(m.styles.item.Render("  • " + it.component.Name))
-		b.WriteString("\n")
-		b.WriteString(m.styles.path.Render("      → " + m.theme.DisplayTargetPath(it.component)))
-		b.WriteString("\n")
-
-		for _, o := range it.component.Options {
-			b.WriteString(m.styles.path.Render("      " + o.Name + ": " + m.optionSummary(o)))
+		for _, o := range m.pageOptions() {
+			// The swatch brings its own leading space, so the colon does not.
+			b.WriteString(m.styles.item.Render("  " + o.Name + ":"))
+			b.WriteString(swatch(m.selectedSwatch(o)))
+			b.WriteString(m.styles.selected.Render(" " + m.optionSummary(o)))
 			b.WriteString("\n")
 		}
 	}
 
-	// A component missing from the list above was either turned down or is not
-	// in the asset tree, and the two need telling apart: one is the user's doing
-	// and the other is a gap in the build. This is the only place either is said.
+	// A component that will not be installed is worth saying, but only when it
+	// is not the user's doing: a gap in the asset tree is a broken build, and
+	// this is the only place it gets said. A component they turned down is
+	// already above, as the answer that turned it down.
 	for _, it := range m.items {
-		if it.selected {
+		if it.selected || it.component.Available {
 			continue
 		}
 
-		reason := "unavailable, will be skipped"
-		if it.component.Available {
-			reason = "not selected"
-		}
-
 		b.WriteString(m.styles.dimmed.Render(
-			"  • " + it.component.Name + " — " + reason,
+			"  " + it.component.Name + " — unavailable, will be skipped",
 		))
 		b.WriteString("\n")
 	}
@@ -61,6 +58,23 @@ func (m Model) confirmView() string {
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// selectedSwatch is the colours of the value a choice currently holds, so the
+// review can show the palette rather than only name it. Anything without them
+// renders no box at all.
+func (m Model) selectedSwatch(o theme.Option) []string {
+	if o.Kind != theme.KindSelect {
+		return nil
+	}
+
+	for _, v := range o.Values {
+		if v.ID == m.choices.Values[o.ID] {
+			return v.Swatch
+		}
+	}
+
+	return nil
 }
 
 // optionSummary renders an option's state the way the review screen lists it:

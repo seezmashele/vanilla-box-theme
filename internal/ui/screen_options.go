@@ -109,19 +109,28 @@ func (m Model) renderRow(i int, row optionRow) string {
 	}
 }
 
-// swatch draws the colour a value stands for as a small filled box, so a
-// palette can be seen rather than only read. A value with no colour renders
+// swatch draws the colours a value stands for as adjacent filled boxes, so a
+// palette can be seen rather than only read. A value with no colours renders
 // nothing at all — not an empty box, which would put every other row out of
 // alignment with itself for no reason.
 //
-// The box is background rather than a block glyph: a filled cell is the same
-// size in every font, where ▉ and █ are not.
-func swatch(colour string) string {
-	if colour == "" {
+// The boxes are backgrounds rather than block glyphs: a filled cell is the same
+// size in every font, where ▉ and █ are not. They are two cells wide apiece
+// because these are dark, barely-tinted surfaces, and a single cell of one is
+// not enough area to tell it from the next palette's.
+func swatch(colours []string) string {
+	if len(colours) == 0 {
 		return ""
 	}
 
-	return " " + lipgloss.NewStyle().Background(lipgloss.Color(colour)).Render("  ")
+	var b strings.Builder
+
+	b.WriteString(" ")
+	for _, c := range colours {
+		b.WriteString(lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("  "))
+	}
+
+	return b.String()
 }
 
 func (m Model) renderToggle(o theme.Option) string {

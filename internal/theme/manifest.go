@@ -111,11 +111,14 @@ type OptionValue struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	// Swatch is a hex colour the preferences screen draws beside this value, for
-	// choices whose difference is a colour and cannot be read off a name. It is
-	// display only: nothing installed is painted from it, and a value that has
-	// none simply shows no box.
-	Swatch string `json:"swatch"`
+	// Swatch is the hex colours the preferences screen draws beside this value,
+	// as adjacent boxes, for choices whose difference is a colour and cannot be
+	// read off a name. It is display only: nothing installed is painted from it,
+	// and a value with none simply shows no box.
+	//
+	// More than one is allowed because a palette is more than one colour, and a
+	// single flat box of a dark surface tells the eye very little.
+	Swatch []string `json:"swatch"`
 
 	// Overlay is laid over the install when this value is chosen. The value that
 	// matches the artwork as generated leaves it empty and copies nothing.

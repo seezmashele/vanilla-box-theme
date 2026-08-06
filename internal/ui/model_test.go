@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -368,7 +369,12 @@ func rowFor(t *testing.T, m Model, option, value string) Model {
 	return m
 }
 
-func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
+// TestConfirmScreenReadsBackTheChoices covers what the review is for: the
+// answers in the words they were asked in. Components and their destinations
+// are deliberately absent — the user chose preferences, not packages, and
+// asking them to check a path tells them nothing about whether they got what
+// they wanted.
+func TestConfirmScreenReadsBackTheChoices(t *testing.T) {
 	m := New(testTheme(t))
 
 	m = optionAt(t, m, "transparency")
@@ -378,18 +384,41 @@ func TestConfirmScreenListsTargetsAndOptions(t *testing.T) {
 		t.Fatalf("screen = %v, want screenConfirm", m.screen)
 	}
 
-	view := renderView(m)
-	if !strings.Contains(view, "Color scheme") {
-		t.Error("confirm view should list the selected components")
-	}
-	if !strings.Contains(view, "color-schemes") {
-		t.Error("confirm view should show where files go")
-	}
+	view := plain(renderView(m))
 	if !strings.Contains(view, "Transparency: off") {
 		t.Error("confirm view should report the chosen options")
 	}
+	if !strings.Contains(view, "Colour: Neutral") {
+		t.Error("confirm view should report the chosen value of a select")
+	}
 	if !strings.Contains(view, "System Settings") {
 		t.Error("confirm view should say the theme is not applied")
+	}
+
+	for _, unwanted := range []string{"color-schemes", "plasma/desktoptheme", "~/.local"} {
+		if strings.Contains(view, unwanted) {
+			t.Errorf("confirm view should not show file paths, found %q", unwanted)
+		}
+	}
+}
+
+// TestConfirmScreenShowsTheColourChosen is the swatch following the user to the
+// last screen. Reading "Rose" back is not a check on anything if the reason
+// they picked it was the colour.
+func TestConfirmScreenShowsTheColourChosen(t *testing.T) {
+	th := testTheme(t)
+
+	for i, o := range th.Components[1].Options {
+		if o.ID == "tint" {
+			th.Components[1].Options[i].Values[0].Swatch = []string{"#292929", "#383838"}
+		}
+	}
+
+	m := New(th)
+	m, _ = send(m, "enter")
+
+	if view := renderView(m); !strings.Contains(view, "\x1b[48;2;41;41;41m") {
+		t.Error("the review should draw the colour of the palette chosen")
 	}
 }
 
@@ -538,6 +567,14 @@ func renderView(m Model) string {
 	return m.View().Content
 }
 
+// ansiEscape matches the styling lipgloss writes around every rendered segment.
+var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// plain drops the styling, so a test can match text that spans two styled
+// segments — a label and its value, say — without depending on where the
+// escapes happen to fall between them.
+func plain(s string) string { return ansiEscape.ReplaceAllString(s, "") }
+
 // TestConditionalComponentFollowsItsPreference is the mechanism that replaced a
 // component checklist: the question is asked once, among the preferences, and
 // the component follows the answer. The failure it guards is a stale selection
@@ -579,27 +616,29 @@ func TestConditionalComponentFollowsItsPreference(t *testing.T) {
 
 // TestPaletteRowsCarryTheirColour covers the one thing a name cannot do: a
 // palette is a colour, and "Plum" only tells you which colour if you already
-// know. The box is drawn from the manifest's swatch, so what is on screen and
-// what gets installed come from the same place.
+// know. The boxes are drawn from the manifest's swatches, so what is on screen
+// and what gets installed come from the same place.
 func TestPaletteRowsCarryTheirColour(t *testing.T) {
 	th := testTheme(t)
 
 	for i, o := range th.Components[1].Options {
 		if o.ID == "tint" {
-			th.Components[1].Options[i].Values[2].Swatch = "#c07a8c"
+			th.Components[1].Options[i].Values[2].Swatch = []string{"#2b2729", "#3b3538"}
 		}
 	}
 
 	view := renderView(New(th))
 
-	// The background escape for #c07a8c, which is what a filled box is.
-	if want := "\x1b[48;2;192;122;140m"; !strings.Contains(view, want) {
-		t.Errorf("the rose row should draw its colour")
+	// The background escapes for the pair, which is what two filled boxes are.
+	for _, want := range []string{"\x1b[48;2;43;39;41m", "\x1b[48;2;59;53;56m"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the rose row should draw both of its surfaces")
+		}
 	}
 
 	// A value with no swatch draws no box, rather than an empty one that would
 	// leave the rows misaligned with each other.
-	if got := swatch(""); got != "" {
-		t.Errorf("swatch(\"\") = %q, want nothing at all", got)
+	if got := swatch(nil); got != "" {
+		t.Errorf("swatch(nil) = %q, want nothing at all", got)
 	}
 }
