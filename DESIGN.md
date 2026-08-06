@@ -645,6 +645,34 @@ rounding rather than chosen: it is the only three-decimal value that yields both
 frames use at radius 8 and the `3.135` the window decoration uses at radius 7 for its inset
 border. The usual `1 - 0.5523` gives `3.134` and fails to reproduce the decoration.
 
+### The tooltip's outline
+
+`widgets/tooltip.svg` is the only container that carries a border. It is also the only one that
+appears over arbitrary content rather than over the desktop or a panel it already contrasts with,
+so it is the only one that has to define its own edge.
+
+The outline is built the way the window decoration builds its own: the border shape is painted
+first and the background laid over it inset by a pixel, so the two antialiased curves stay
+concentric. The corner builders therefore take an inset, and the idiom is chosen from the frame's
+own radius rather than the inset one — an inner path is the same corner drawn a pixel in, and
+re-deciding on the reduced radius would hand a frame's inner path to a different template than its
+outer one.
+
+Two things about it are easy to get wrong:
+
+- **It goes through the stylesheet, not a literal colour.** The container artwork is generated once
+  per shape, not per palette — `containers/` has a `rounded` and a `square` tree and no tint axis —
+  because Plasma resolves `ColorScheme-*` classes at paint time. A literal border colour would bake
+  the default palette's edge into a file all five palettes share. The outline is
+  `ColorScheme-Text` at `0.1`, so it follows the tint like everything else.
+- **The mask copies stay whole.** `mask-*` is the blur region rather than artwork. An outline drawn
+  into it would punch a ring out of the blur instead of showing up as a border, so the mask keeps
+  the frame's full outer shape.
+
+The border does not change what the transparency toggles cover. `opacity.tooltip` is still zero, so
+the root file and its `opaque/` copy remain byte for byte the same and there is still no fourth
+toggle to offer.
+
 Generated assets are committed. The README promises `assets/` ships beside the binary, the tests
 install the real shipped artwork rather than a fixture, and a contributor should be able to run the
 installer without a generate step. `.gitignore` therefore stays minimal and deliberately does not

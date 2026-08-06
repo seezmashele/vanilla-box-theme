@@ -1,15 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="44" height="60">
 <defs><style type="text/css" id="current-color-scheme">
 .ColorScheme-Background { color:#2f2f2f; }
+.ColorScheme-Text { color:#e8e4dd; }
 </style></defs>
-<g id="topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="topright"><path d="M34,0 L44,0 L44,10 L34,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="bottomleft"><path d="M0,34 L10,34 L10,44 L0,44 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<g id="bottomright"><path d="M34,34 L44,34 L44,44 L34,44 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
-<rect id="top" x="10" y="0" width="24" height="10" class="ColorScheme-Background" style="fill:currentColor"/>
-<rect id="bottom" x="10" y="34" width="24" height="10" class="ColorScheme-Background" style="fill:currentColor"/>
-<rect id="left" x="0" y="10" width="10" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
-<rect id="right" x="34" y="10" width="10" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
+<g id="topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><path d="M1,10 L1,1 L10,1 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="topright"><path d="M34,0 L44,0 L44,10 L34,10 Z" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><path d="M34,1 L43,1 L43,10 L34,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="bottomleft"><path d="M0,34 L10,34 L10,44 L0,44 Z" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><path d="M1,34 L10,34 L10,43 L1,43 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="bottomright"><path d="M34,34 L44,34 L44,44 L34,44 Z" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><path d="M34,34 L43,34 L43,43 L34,43 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="top"><rect x="10" y="0" width="24" height="1" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><rect x="10" y="1" width="24" height="9" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="bottom"><rect x="10" y="43" width="24" height="1" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><rect x="10" y="34" width="24" height="9" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="left"><rect x="0" y="10" width="1" height="24" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><rect x="1" y="10" width="9" height="24" class="ColorScheme-Background" style="fill:currentColor"/></g>
+<g id="right"><rect x="43" y="10" width="1" height="24" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><rect x="34" y="10" width="9" height="24" class="ColorScheme-Background" style="fill:currentColor"/></g>
 <rect id="center" x="10" y="10" width="24" height="24" class="ColorScheme-Background" style="fill:currentColor"/>
 <g id="mask-topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" style="fill:#ffffff"/></g>
 <g id="mask-topright"><path d="M34,0 L44,0 L44,10 L34,10 Z" style="fill:#ffffff"/></g>

@@ -444,9 +444,13 @@ func frames(tk *tokens, palette map[string]string, radii map[string]float64, tra
 		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
 		Fallback: palette["background"], Mask: true, HintSize: 8, HintY: 48,
 	}
+	// The tooltip is the one container that appears over arbitrary content
+	// rather than over the desktop or a panel it already contrasts with, so it
+	// is the one that carries an outline to sit off whatever is behind it.
 	tooltip := frame{
 		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
 		Fallback: palette["elevated"], Mask: true, HintSize: 4, HintY: 48,
+		Border: "0.1", BorderFallback: palette["text"],
 	}
 	panel := frame{
 		Size: 40, Canvas: 56, Tile: 8, Radius: radii["panel"],

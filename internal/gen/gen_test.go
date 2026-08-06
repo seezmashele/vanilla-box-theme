@@ -68,12 +68,88 @@ func TestSquareSurfacesDropTheirCurves(t *testing.T) {
 }
 
 func firstTile(svg string) string {
-	start := strings.Index(svg, `<g id="topleft"`)
+	return element(svg, "topleft")
+}
+
+// element returns the one line of the sheet carrying the given tile id.
+func element(svg, id string) string {
+	start := strings.Index(svg, `id="`+id+`"`)
 	if start < 0 {
-		return svg
+		return ""
 	}
+	start = strings.LastIndex(svg[:start], "<")
 
 	return svg[start : start+strings.Index(svg[start:], "\n")]
+}
+
+// outlined is the tooltip's frame: the one container that carries a border.
+func outlined() frame {
+	return frame{
+		Size: 44, Canvas: 60, Tile: 10, Radius: 8,
+		Fallback: "#2f2f2f", Mask: true, HintSize: 4, HintY: 48,
+		Border: "0.1", BorderFallback: "#e8e4dd",
+	}
+}
+
+// TestOutlineIsConcentricWithTheSurface covers how the border is built: the
+// outline is the whole tile and the background is the same shape a pixel in, so
+// the two curves stay parallel. Drawing the inner path at the outer radius
+// would leave the border thicker at the corners than along the edges.
+func TestOutlineIsConcentricWithTheSurface(t *testing.T) {
+	svg := outlined().render()
+	tile := element(svg, "topleft")
+
+	// Radius 8 at the outer edge, 7 a pixel in — and cornerFactor puts the
+	// inner control point at 1+7*0.4478.
+	outer := `d="M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z"`
+	inner := `d="M1,10 L1,8 C1,4.135 4.135,1 8,1 L10,1 L10,10 Z"`
+
+	if !strings.Contains(tile, outer) {
+		t.Errorf("outline should cover the whole corner, want %s in:\n%s", outer, tile)
+	}
+	if !strings.Contains(tile, inner) {
+		t.Errorf("surface should sit a pixel inside it, want %s in:\n%s", inner, tile)
+	}
+	// The outline goes through the stylesheet so it follows the tint rather than
+	// baking one palette's border into artwork every palette shares.
+	if !strings.Contains(svg, `.ColorScheme-Text { color:#e8e4dd; }`) {
+		t.Errorf("the outline's class should be declared in the stylesheet:\n%s", svg)
+	}
+}
+
+// TestOutlineLeavesTheMaskWhole is the half of the border that is invisible
+// until it is wrong: the mask is the blur region, not artwork, so an outline
+// drawn into it would cut a ring out of the blur instead of showing as a
+// border.
+func TestOutlineLeavesTheMaskWhole(t *testing.T) {
+	svg := outlined().render()
+
+	for _, id := range []string{"mask-topleft", "mask-top", "mask-center"} {
+		tile := element(svg, id)
+		if tile == "" {
+			t.Errorf("no %s in the sheet", id)
+
+			continue
+		}
+		if strings.Contains(tile, "ColorScheme-Text") {
+			t.Errorf("%s carries the outline:\n%s", id, tile)
+		}
+	}
+}
+
+// TestUnoutlinedFramesAreUntouched pins the panel and popup artwork against the
+// border work: they share the corner builders with the tooltip, and a frame
+// with no outline must still emit one flat shape per tile.
+func TestUnoutlinedFramesAreUntouched(t *testing.T) {
+	plain := outlined()
+	plain.Border, plain.BorderFallback = "", ""
+
+	tile := element(plain.render(), "topleft")
+
+	want := `<g id="topleft"><path d="M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>`
+	if tile != want {
+		t.Errorf("a frame with no outline changed shape:\n got %s\nwant %s", tile, want)
+	}
 }
 
 // TestEveryMappedSourceIsVendored is the failure that would otherwise wait
