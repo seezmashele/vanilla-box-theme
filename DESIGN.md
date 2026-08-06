@@ -31,20 +31,23 @@ instead, because **each axis owns a disjoint set of files**.
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
-| Container shape | `square` | baked | the four frames across three prefixes |
+| Container shape | `rounded` | baked | the four frames across three prefixes |
 | Element shape | `rounded` | baked | `button`, `lineedit`, `viewitem` |
-| Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
+| Titlebar shape | `rounded` | baked | `aurorae/decoration.svg`, as a product with the palette |
 | Button style | `mac` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
 | Icons | `off` | whole component, plus the `defaults` as a product | `icons/VanillaBoxIconsDark/`, `[kdeglobals][Icons]` |
 
-Square is the default on the two axes that shape a surface — the panel and popup backgrounds, and
-the titlebar — and rounded on the one that shapes what sits inside them. That combination is the
-shipped look rather than a compromise between two: straight edges where the desktop ends, softened
-corners on the things being clicked. They stay separate axes because the questions are genuinely
-independent — rounded panels under a square titlebar is a combination someone will want, and so is
-a square popup around rounded buttons — and because only the titlebar carries the Aurorae
-limitation below.
+Rounded is the default on all three shape axes, and each lists `rounded` before `square` so the
+shipped answer is the one the cursor starts on. The theme shipped square containers and titlebars
+first, on the reasoning that straight edges where the desktop ends read as deliberate; softened
+corners throughout turned out to read as the more finished default, and a square desktop is still
+three keystrokes away.
+
+They stay separate axes because the questions are genuinely independent — rounded panels under a
+square titlebar is a combination someone will want, and so is a square popup around rounded
+buttons — and because only the titlebar carries the Aurorae limitation below. Sharing a default is
+not the same as being one question.
 
 Containers and elements were one axis at first, on the reasoning that a corner radius is a corner
 radius. They are not: the surfaces a thing sits in and the things sitting in it are separately
@@ -154,6 +157,11 @@ rather than by count.
   and the scheme says `158,158,158`; both must be emitted from one token so they cannot drift.
 - `Colors:Selection` comes from the palette's accent, not from its surfaces. It is the one role
   that reads from the other half of the pair.
+- `Colors:Tooltip` takes `view` rather than a chrome surface. A tooltip is the one popup that
+  appears over arbitrary content, so it reads as a dark card rather than as one more shade of the
+  window it covers — the same reason it is the only container that carries a border. Its
+  `DecorationFocus` follows its background, as it does in every set that does not want a visible
+  focus ring; only `Complementary` and `View` deliberately differ.
 - The colours embedded in each SVG's `current-color-scheme` block are fallbacks — what an editor
   shows. They should stay accurate for the default palette, but do not drive rendering.
   `TestShippedStyleFollowsTheColorScheme` guards the deferral itself.
@@ -672,6 +680,29 @@ Two things about it are easy to get wrong:
 The border does not change what the transparency toggles cover. `opacity.tooltip` is still zero, so
 the root file and its `opaque/` copy remain byte for byte the same and there is still no fourth
 toggle to offer.
+
+#### The empty shadow prefix
+
+`widgets/tooltip.svg` also ships a `shadow-` prefix whose nine tiles are all `fill:none`. It exists
+for the same reason `widgets/scrollwidget.svg` does — to stop a fallback — and without it the
+tooltip draws two borders.
+
+`org.kde.plasma.components.ToolTip` builds its background from two `FrameSvgItem`s over the same
+sheet: one with `prefix: "shadow"`, anchored with *negative* margins so it sits outside, and one
+plain. KSvg decides a prefix exists by looking for `<prefix>-center`, and clears the prefix when it
+finds none — so a sheet with no shadow tiles renders its own frame a second time, inflated by the
+frame's 4px margins. Two flat fills stacked that way are invisible; two outlined ones are a pair of
+concentric borders 4px apart.
+
+The tiles are bare rects on the painted tiles' own coordinates. An element is fetched by id, so
+what it overlaps in the sheet never comes up — the `mask-` copies already work this way. The
+`shadow-hint-*-margin` rects repeat the frame's own, so the prefix reports the insets KSvg was
+already deriving from the fallback and the tooltip's geometry does not move.
+
+Only the tooltip needs this. `widgets/button.svg` is the other file a `shadow` prefix is asked for
+(`ButtonShadow.qml`), and it has no unprefixed tiles at all, so its fallback finds nothing to draw.
+Every other container is a flat fill, where a doubled draw has nothing to show. A border is what
+makes the fallback visible, and the tooltip is the only container that carries one.
 
 Generated assets are committed. The README promises `assets/` ships beside the binary, the tests
 install the real shipped artwork rather than a fixture, and a contributor should be able to run the

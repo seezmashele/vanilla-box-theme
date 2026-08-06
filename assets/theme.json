@@ -68,20 +68,20 @@
           "description": "The panel strip, menus, tooltips and applet backgrounds",
           "group": "Shape",
           "kind": "select",
-          "defaultValue": "square",
+          "defaultValue": "rounded",
           "values": [
-            {
-              "id": "square",
-              "name": "Square",
-              "overlay": {
-                "from": "variants/containers/square"
-              }
-            },
             {
               "id": "rounded",
               "name": "Rounded",
               "overlay": {
                 "from": "variants/containers/rounded"
+              }
+            },
+            {
+              "id": "square",
+              "name": "Square",
+              "overlay": {
+                "from": "variants/containers/square"
               }
             }
           ]
@@ -95,17 +95,17 @@
           "defaultValue": "rounded",
           "values": [
             {
-              "id": "square",
-              "name": "Square",
-              "overlay": {
-                "from": "variants/elements/square"
-              }
-            },
-            {
               "id": "rounded",
               "name": "Rounded",
               "overlay": {
                 "from": "variants/elements/rounded"
+              }
+            },
+            {
+              "id": "square",
+              "name": "Square",
+              "overlay": {
+                "from": "variants/elements/square"
               }
             }
           ]
@@ -174,15 +174,15 @@
           "description": "Top corners of the window frame",
           "group": "Shape",
           "kind": "select",
-          "defaultValue": "square",
+          "defaultValue": "rounded",
           "values": [
-            {
-              "id": "square",
-              "name": "Square"
-            },
             {
               "id": "rounded",
               "name": "Rounded"
+            },
+            {
+              "id": "square",
+              "name": "Square"
             }
           ]
         },

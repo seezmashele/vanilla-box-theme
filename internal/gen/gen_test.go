@@ -87,7 +87,47 @@ func outlined() frame {
 	return frame{
 		Size: 44, Canvas: 60, Tile: 10, Radius: 8,
 		Fallback: "#2f2f2f", Mask: true, HintSize: 4, HintY: 48,
-		Border: "0.1", BorderFallback: "#e8e4dd",
+		Border: "0.1", BorderFallback: "#e8e4dd", Shadow: true,
+	}
+}
+
+// TestShadowPrefixIsPresentAndEmpty is what keeps the tooltip to one border.
+//
+// org.kde.plasma.components.ToolTip draws this sheet twice, once with prefix
+// "shadow" for the drop shadow and once plain. KSvg decides a prefix exists by
+// looking for <prefix>-center and clears the prefix when it finds none, so a
+// sheet with no shadow tiles draws its own frame a second time, inflated by the
+// margins — which is one border while the frame is a flat fill and two the
+// moment it has an outline.
+func TestShadowPrefixIsPresentAndEmpty(t *testing.T) {
+	svg := outlined().render()
+
+	// The probe KSvg uses. Everything else here depends on it being found.
+	if !strings.Contains(svg, `id="shadow-center"`) {
+		t.Fatal("no shadow-center: KSvg would clear the prefix and draw the frame twice")
+	}
+
+	for _, name := range []string{
+		"topleft", "topright", "bottomleft", "bottomright",
+		"top", "bottom", "left", "right", "center",
+	} {
+		el := element(svg, "shadow-"+name)
+		if el == "" {
+			t.Errorf("no shadow-%s in the sheet", name)
+
+			continue
+		}
+		if !strings.Contains(el, `style="fill:none"`) {
+			t.Errorf("shadow-%s paints something, so it would show as a second border:\n%s", name, el)
+		}
+	}
+
+	// The prefix reports the frame's own insets, so adding it does not move the
+	// tooltip: these are the margins KSvg already derived from the fallback.
+	for _, side := range []string{"top", "bottom", "left", "right"} {
+		if !strings.Contains(svg, `id="shadow-hint-`+side+`-margin"`) {
+			t.Errorf("no shadow-hint-%s-margin", side)
+		}
 	}
 }
 

@@ -41,6 +41,19 @@ type frame struct {
 	Border         string
 	BorderFallback string // stylesheet colour for the outline
 
+	// Shadow emits a shadow- prefixed tile set that paints nothing.
+	//
+	// Plasma's tooltip draws this artwork twice: once with prefix "shadow" for
+	// the drop shadow and once plain for the background. KSvg decides a prefix
+	// exists by looking for <prefix>-center, and clears the prefix when it finds
+	// none — so a sheet with no shadow tiles draws its own frame a second time,
+	// inflated by the frame's margins. That was invisible while the frame was a
+	// flat fill and is two concentric borders the moment it has an outline.
+	//
+	// Shipping the prefix empty is the only way to say "there is no shadow
+	// here", for the same reason widgets/scrollwidget.svg exists at all.
+	Shadow bool
+
 	Mask     bool // emit the mask- copies used for blur regions
 	HintSize int  // size of the four margin hints
 	HintY    int  // baseline the hints sit on
@@ -89,9 +102,17 @@ func (f frame) render() string {
 		}
 	}
 
-	for i, name := range []string{"top", "bottom", "left", "right"} {
-		fmt.Fprintf(&b, `<rect id="hint-%s-margin" x="%d" y="%d" width="%d" height="%d" style="fill:none"/>`,
-			name, i*10, f.HintY, f.HintSize, f.HintSize)
+	// The empty shadow prefix, tiles and margin hints together: the hints repeat
+	// the frame's own, so the prefix reports the insets KSvg already derives
+	// from the fallback and the tooltip's geometry does not move.
+	if f.Shadow {
+		for _, el := range append(f.nullTiles("shadow-"), f.hints("shadow-")...) {
+			b.WriteString(el + "\n")
+		}
+	}
+
+	for _, hint := range f.hints("") {
+		b.WriteString(hint)
 		if !f.Inline {
 			b.WriteString("\n")
 		}
@@ -163,6 +184,51 @@ func (f frame) tiles(paint, border string) []string {
 		strip("bottom", t, s-1, inner, 1, t, s-t, inner, t-1),
 		strip("left", 0, t, 1, inner, 1, t, t-1, inner),
 		strip("right", s-1, t, 1, inner, s-t, t, t-1, inner),
+		rect("center", t, t, inner, inner),
+	}
+}
+
+// hints returns the four margin rects Plasma reads the frame's insets from,
+// under the given id prefix.
+func (f frame) hints(prefix string) []string {
+	out := make([]string, 0, 4)
+
+	for i, name := range []string{"top", "bottom", "left", "right"} {
+		out = append(out, fmt.Sprintf(
+			`<rect id="%shint-%s-margin" x="%d" y="%d" width="%d" height="%d" style="fill:none"/>`,
+			prefix, name, i*10, f.HintY, f.HintSize, f.HintSize))
+	}
+
+	return out
+}
+
+// nullTiles returns the nine tiles of a prefix that paints nothing: bare rects
+// on the frame's own tile boxes, which is all KSvg needs to find the prefix and
+// take its geometry from it. They sit on the same coordinates as the painted
+// tiles, as the mask- copies already do — an element is fetched by id, so what
+// it overlaps in the sheet never comes up.
+//
+// The corners are rects rather than the painted paths because a tile that draws
+// nothing has no corner to round.
+func (f frame) nullTiles(prefix string) []string {
+	t := f.Tile
+	s := f.Size
+	inner := s - 2*t
+
+	rect := func(name string, x, y, w, h int) string {
+		return fmt.Sprintf(`<rect id="%s%s" x="%d" y="%d" width="%d" height="%d" style="fill:none"/>`,
+			prefix, name, x, y, w, h)
+	}
+
+	return []string{
+		rect("topleft", 0, 0, t, t),
+		rect("topright", s-t, 0, t, t),
+		rect("bottomleft", 0, s-t, t, t),
+		rect("bottomright", s-t, s-t, t, t),
+		rect("top", t, 0, inner, t),
+		rect("bottom", t, s-t, inner, t),
+		rect("left", 0, t, t, inner),
+		rect("right", s-t, t, t, inner),
 		rect("center", t, t, inner, inner),
 	}
 }

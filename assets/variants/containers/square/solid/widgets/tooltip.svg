@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="44" height="60">
 <defs><style type="text/css" id="current-color-scheme">
-.ColorScheme-Background { color:#2f2f2f; }
+.ColorScheme-Background { color:#141414; }
 .ColorScheme-Text { color:#e8e4dd; }
 </style></defs>
 <g id="topleft"><path d="M0,10 L0,0 L10,0 L10,10 Z" class="ColorScheme-Text" style="fill:currentColor" opacity="0.1"/><path d="M1,10 L1,1 L10,1 L10,10 Z" class="ColorScheme-Background" style="fill:currentColor"/></g>
@@ -21,6 +21,19 @@
 <rect id="mask-left" x="0" y="10" width="10" height="24" style="fill:#ffffff"/>
 <rect id="mask-right" x="34" y="10" width="10" height="24" style="fill:#ffffff"/>
 <rect id="mask-center" x="10" y="10" width="24" height="24" style="fill:#ffffff"/>
+<rect id="shadow-topleft" x="0" y="0" width="10" height="10" style="fill:none"/>
+<rect id="shadow-topright" x="34" y="0" width="10" height="10" style="fill:none"/>
+<rect id="shadow-bottomleft" x="0" y="34" width="10" height="10" style="fill:none"/>
+<rect id="shadow-bottomright" x="34" y="34" width="10" height="10" style="fill:none"/>
+<rect id="shadow-top" x="10" y="0" width="24" height="10" style="fill:none"/>
+<rect id="shadow-bottom" x="10" y="34" width="24" height="10" style="fill:none"/>
+<rect id="shadow-left" x="0" y="10" width="10" height="24" style="fill:none"/>
+<rect id="shadow-right" x="34" y="10" width="10" height="24" style="fill:none"/>
+<rect id="shadow-center" x="10" y="10" width="24" height="24" style="fill:none"/>
+<rect id="shadow-hint-top-margin" x="0" y="48" width="4" height="4" style="fill:none"/>
+<rect id="shadow-hint-bottom-margin" x="10" y="48" width="4" height="4" style="fill:none"/>
+<rect id="shadow-hint-left-margin" x="20" y="48" width="4" height="4" style="fill:none"/>
+<rect id="shadow-hint-right-margin" x="30" y="48" width="4" height="4" style="fill:none"/>
 <rect id="hint-top-margin" x="0" y="48" width="4" height="4" style="fill:none"/>
 <rect id="hint-bottom-margin" x="10" y="48" width="4" height="4" style="fill:none"/>
 <rect id="hint-left-margin" x="20" y="48" width="4" height="4" style="fill:none"/>

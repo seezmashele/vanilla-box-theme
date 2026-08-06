@@ -449,8 +449,8 @@ func frames(tk *tokens, palette map[string]string, radii map[string]float64, tra
 	// is the one that carries an outline to sit off whatever is behind it.
 	tooltip := frame{
 		Size: 44, Canvas: 60, Tile: 10, Radius: radii["popup"],
-		Fallback: palette["elevated"], Mask: true, HintSize: 4, HintY: 48,
-		Border: "0.1", BorderFallback: palette["text"],
+		Fallback: palette["view"], Mask: true, HintSize: 4, HintY: 48,
+		Border: "0.1", BorderFallback: palette["text"], Shadow: true,
 	}
 	panel := frame{
 		Size: 40, Canvas: 56, Tile: 8, Radius: radii["panel"],

@@ -129,20 +129,18 @@ adding an option means saying where it belongs rather than editing a screen.
 | Preference | Values | Changes |
 | --- | --- | --- |
 | Surfaces | Neutral, Slate, Plum, Rose, Forest | the tint of every surface — and, quietly, the accent that goes with it |
-| Panel & popup corners | Square, Rounded | the panel strip, menus, tooltips, applet backgrounds |
-| Button & input corners | Square, Rounded | buttons, search bars, list items |
-| Titlebar corners | Square, Rounded | the top corners of the window frame |
+| Panel & popup corners | Rounded, Square | the panel strip, menus, tooltips, applet backgrounds |
+| Button & input corners | Rounded, Square | buttons, search bars, list items |
+| Titlebar corners | Rounded, Square | the top corners of the window frame |
 | Window buttons | Traffic lights, Symbols | close, minimise and maximise |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
 
 A choice's default is `"defaultValue"` in `theme.json` rather than whichever value happens to be
-listed first — the two usually agree, and button corners are where they part: Square is listed
-first because it is the pair to the square panels above it, and Rounded is what installs. Accepting
-each prompt gives Neutral, square panels and popups, rounded buttons and inputs, traffic-light
-window buttons, and your own icons left alone. Square surfaces around rounded controls is the
-shipped look: the edges of the desktop are straight, and the things you click on are not.
+listed first. On the corner preferences the two agree: all three list Rounded first and install it,
+so the cursor starts on the shipped answer. Accepting each prompt gives Neutral, rounded corners
+throughout, traffic-light window buttons, and your own icons left alone.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of
@@ -162,8 +160,12 @@ agree, and they are given different radii when both are rounded — 8 for panels
 buttons — because a button rounded as hard as the popup around it looks like it is trying to
 escape.
 
-The titlebar's rounded variant cannot round its *bottom* corners — see the comment in
-`decoration.svg` — so square is the only shape there without a compromise.
+The titlebar's rounded variant rounds the top two corners only. The bottom corners stay square in
+both variants, and cannot be anything else: rounding them needs a bottom border to draw the curve
+in, and anything narrower than the radius lets the client window's square corner show through.
+Breeze gets around it by calling `KDecoration3::Decoration::setBorderRadius` so KWin clips the
+client, and no Aurorae plugin exposes that API — see the comment in `decoration.svg`. Rounded top,
+square bottom is what every SVG-themed decoration looks like, so it is the default here too.
 
 Traffic lights are grey circles that take a muted colour on hover, and never show a symbol. They
 stay on the right, where KDE puts window buttons; macOS would put them on the left, and you can

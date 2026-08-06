@@ -47,7 +47,12 @@ func (s scheme) render() string {
 			DecorationFocus:  a["highlight"],
 			ForegroundNormal: p["onHighlight"], ForegroundInactive: p["onHighlight"],
 		},
-		{Name: "Tooltip", BackgroundAlt: p["elevatedAlt"], BackgroundNormal: p["elevated"], DecorationFocus: p["elevated"]},
+		// The tooltip is the one surface that sits on the view colour rather than
+		// the chrome ones. It appears over arbitrary content, so it reads better
+		// as a dark card than as one more shade of the window it covers. Focus
+		// tracks the background, as it does in every set that does not want a
+		// visible focus ring.
+		{Name: "Tooltip", BackgroundAlt: p["elevatedAlt"], BackgroundNormal: p["view"], DecorationFocus: p["view"]},
 		{Name: "View", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["view"], DecorationFocus: p["focusDim"]},
 		{Name: "Window", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["background"], DecorationFocus: p["background"]},
 	}
