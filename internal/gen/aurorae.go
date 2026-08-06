@@ -240,10 +240,17 @@ func lookAndFeelDefaults(icons, accent, buttonsOnLeft, buttonsOnRight string) st
 ColorScheme=VanillaBoxDark
 accentColorFromWallpaper=false
 AccentColor=%s
+`, rgb(accent))
 
-[kdeglobals][Icons]
-Theme=%s
+	// Naming an icon theme that was not installed would point kdeglobals at a
+	// directory that does not exist. KDE recovers by falling back, but silently
+	// writing a broken setting is not the same as leaving the user's icons
+	// alone, which is what turning the option down asked for.
+	if icons != "" {
+		fmt.Fprintf(&b, "\n[kdeglobals][Icons]\nTheme=%s\n", icons)
+	}
 
+	fmt.Fprint(&b, `
 [plasmarc][Theme]
 name=vanilla-box-dark
 
@@ -252,7 +259,7 @@ library=org.kde.kwin.aurorae.v2
 theme=__aurorae__svg__VanillaBoxDark
 BorderSize=None
 BorderSizeAuto=false
-`, rgb(accent), icons)
+`)
 
 	if buttonsOnLeft != "" || buttonsOnRight != "" {
 		fmt.Fprintf(&b, "ButtonsOnLeft=%s\nButtonsOnRight=%s\n", buttonsOnLeft, buttonsOnRight)

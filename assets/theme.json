@@ -37,23 +37,28 @@
           "values": [
             {
               "id": "neutral",
-              "name": "Neutral"
+              "name": "Neutral",
+              "swatch": "#ae8e6c"
             },
             {
               "id": "slate",
-              "name": "Slate"
+              "name": "Slate",
+              "swatch": "#7d93ad"
             },
             {
               "id": "plum",
-              "name": "Plum"
+              "name": "Plum",
+              "swatch": "#a288b0"
             },
             {
               "id": "rose",
-              "name": "Rose"
+              "name": "Rose",
+              "swatch": "#c07a8c"
             },
             {
               "id": "forest",
-              "name": "Forest"
+              "name": "Forest",
+              "swatch": "#4a6d41"
             }
           ]
         },
@@ -87,7 +92,7 @@
           "description": "Buttons, search bars and list items inside them",
           "group": "Shape",
           "kind": "select",
-          "defaultValue": "square",
+          "defaultValue": "rounded",
           "values": [
             {
               "id": "square",
@@ -222,9 +227,31 @@
       "source": "plasma/look-and-feel/org.vanillabox.dark",
       "target": "plasma/look-and-feel",
       "required": true,
+      "options": [
+        {
+          "id": "icons",
+          "name": "Icons",
+          "description": "Phosphor icons for the tray, launcher and menus",
+          "group": "Icons",
+          "kind": "select",
+          "defaultValue": "off",
+          "values": [
+            {
+              "id": "off",
+              "name": "Keep my icons",
+              "description": "(leaves your current icon theme alone)"
+            },
+            {
+              "id": "on",
+              "name": "Vanilla Box icons",
+              "description": "(installs and switches to them)"
+            }
+          ]
+        }
+      ],
       "resolved": [
         {
-          "source": "variants/defaults/{palette}/defaults",
+          "source": "variants/defaults/{palette}-{icons}/defaults",
           "target": "contents/defaults"
         }
       ]
@@ -235,7 +262,10 @@
       "description": "System tray, launcher and menu icons",
       "source": "icons/VanillaBoxIconsDark",
       "target": "icons",
-      "required": true
+      "installedWhen": {
+        "option": "icons",
+        "value": "on"
+      }
     }
   ]
 }

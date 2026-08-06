@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -203,5 +204,70 @@ func TestGlyphSizeIsWhatItSays(t *testing.T) {
 		if strings.Contains(plain, "transform") {
 			t.Errorf("scale %v should emit no transform:\n%s", scale, plain)
 		}
+	}
+}
+
+// TestSwatchesMatchTheAccents keeps the two hand-written copies of a colour in
+// step. The manifest carries a swatch so the preferences screen can draw the
+// palette it is offering, and spec/tokens.json is where that colour actually
+// comes from — a swatch that drifts shows the user one colour and installs
+// another, which is worse than showing none.
+func TestSwatchesMatchTheAccents(t *testing.T) {
+	const root = "../.."
+
+	tk, err := loadTokens(filepath.Join(root, "spec", "tokens.json"))
+	if err != nil {
+		t.Fatalf("loadTokens: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, "assets", "theme.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var manifest struct {
+		Components []struct {
+			Options []struct {
+				ID     string `json:"id"`
+				Values []struct {
+					ID     string `json:"id"`
+					Swatch string `json:"swatch"`
+				} `json:"values"`
+			} `json:"options"`
+		} `json:"components"`
+	}
+
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+
+	var seen int
+
+	for _, c := range manifest.Components {
+		for _, o := range c.Options {
+			if o.ID != "palette" {
+				continue
+			}
+
+			for _, v := range o.Values {
+				p, ok := tk.Palettes[v.ID]
+				if !ok {
+					t.Errorf("theme.json offers palette %q, which spec/tokens.json does not define", v.ID)
+
+					continue
+				}
+
+				seen++
+
+				if v.Swatch != p.Accent {
+					t.Errorf("%s swatch is %s but its accent is %s — "+
+						"edit spec/tokens.json and assets/theme.json together", v.ID, v.Swatch, p.Accent)
+				}
+			}
+		}
+	}
+
+	if seen != len(tk.Palettes) {
+		t.Errorf("the manifest offers %d palettes, spec/tokens.json defines %d", seen, len(tk.Palettes))
 	}
 }

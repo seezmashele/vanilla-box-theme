@@ -113,12 +113,13 @@ const (
 	// under variants/ and copied over an install by the option that names it.
 	defaultPalette = "neutral"
 
-	// Square is the default throughout, so that accepting every prompt gives a
-	// theme with no rounded corners anywhere. It is also the only titlebar shape
-	// without a compromise: the rounded variant cannot round its bottom corners
-	// under Aurorae.
+	// Square is the default for the surfaces a thing sits in — it is also the
+	// only titlebar shape without a compromise, since the rounded variant cannot
+	// round its bottom corners under Aurorae. The things sitting in them round
+	// by default instead: a square panel is a deliberate edge, where a square
+	// button is mostly just a square button.
 	defaultContainers = "square"
-	defaultElements   = "square"
+	defaultElements   = "rounded"
 	defaultTitlebar   = "square"
 	defaultButtons    = "mac"
 
@@ -338,7 +339,12 @@ func variants(tk *tokens) (map[string]string, error) {
 	}
 
 	for name, p := range tk.Palettes {
-		out[variantDir+"/defaults/"+name+"/defaults"] = lookAndFeelDefaults(tk.Theme.IconsID, p.Accent, "", "")
+		// A product with the icon choice: the defaults are the only file that
+		// mentions the icon theme, and it must not name one the user turned down.
+		for choice, icons := range map[string]string{"on": tk.Theme.IconsID, "off": ""} {
+			out[variantDir+"/defaults/"+name+"-"+choice+"/defaults"] =
+				lookAndFeelDefaults(icons, p.Accent, "", "")
+		}
 	}
 
 	for name := range tk.ButtonStyles {
@@ -608,7 +614,8 @@ func build(tk *tokens, name, containerShape, elementShape, decoShape, buttons st
 		out[auroraeDir+"/"+path] = content
 	}
 
-	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults(tk.Theme.IconsID, acc, "", "")
+	// The shipped copy matches the shipped default, which is icons off.
+	out[lookFeel+"/contents/defaults"] = lookAndFeelDefaults("", acc, "", "")
 
 	// Identity: the same handful of facts KDE wants in three formats, plus the
 	// installer's own copy of the version.

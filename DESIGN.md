@@ -32,15 +32,19 @@ instead, because **each axis owns a disjoint set of files**.
 | --- | --- | --- | --- |
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
 | Container shape | `square` | baked | the four frames across three prefixes |
-| Element shape | `square` | baked | `button`, `lineedit`, `viewitem` |
+| Element shape | `rounded` | baked | `button`, `lineedit`, `viewitem` |
 | Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
 | Button style | `mac` | baked | the four button SVGs and `VanillaBoxDarkrc` |
 | Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
+| Icons | `off` | whole component, plus the `defaults` as a product | `icons/VanillaBoxIconsDark/`, `[kdeglobals][Icons]` |
 
-Square is the default on all three shape axes, so that accepting every prompt gives a theme with no
-rounded corners anywhere. They stay separate axes because the questions are genuinely independent —
-rounded panels under a square titlebar is a combination someone will want, and so is a rounded
-popup around square buttons — and because only the titlebar carries the Aurorae limitation below.
+Square is the default on the two axes that shape a surface — the panel and popup backgrounds, and
+the titlebar — and rounded on the one that shapes what sits inside them. That combination is the
+shipped look rather than a compromise between two: straight edges where the desktop ends, softened
+corners on the things being clicked. They stay separate axes because the questions are genuinely
+independent — rounded panels under a square titlebar is a combination someone will want, and so is
+a square popup around rounded buttons — and because only the titlebar carries the Aurorae
+limitation below.
 
 Containers and elements were one axis at first, on the reasoning that a corner radius is a corner
 radius. They are not: the surfaces a thing sits in and the things sitting in it are separately
@@ -576,7 +580,7 @@ assets/                     generated; committed
   variants/
     colors/<palette>/               the two colors files      10 files
     decoration/<palette>-<shape>/   decoration.svg            10 files
-    defaults/<palette>/             look-and-feel defaults     5 files
+    defaults/<palette>-<icons>/     look-and-feel defaults     10 files
     containers/<shape>/             the four frames x3        24 files
     elements/<shape>/               the three controls         6 files
     buttons/<style>/                titlebar set              10 files
@@ -671,24 +675,44 @@ the same guarantee the transparency option makes today.
 
 ### There is no component checklist
 
-Every component is marked `required`, so all of them install and the checklist screen is gone. The
-run opens on the preferences.
+The four core components are marked `required`, so they install without being asked about and the
+checklist screen is gone. The run opens on the preferences.
 
-The flag survives the screen it was invented for. It is what the manifest uses to say "this is not
-a choice", and re-introducing an optional component is a one-line edit rather than a restored
-screen — which is the only reason to keep a mechanism with a single value.
+The icon theme is the exception, and it is the case that shows why the flag was worth keeping past
+the screen it was invented for. Icons are a real choice — they replace every icon on the desktop,
+which is the largest thing this installer can do to a machine — and they ship turned off, so
+accepting every prompt leaves the user's icons alone.
+
+They are not offered as a checklist row, though. A component carries `installedWhen`, naming a
+preference and the value it has to hold:
+
+```json
+{ "id": "icons", "installedWhen": { "option": "icons", "value": "on" } }
+```
+
+The question is then asked once, in its own preferences page, and two things follow the one answer:
+the files, and the `[kdeglobals][Icons]` line in the look-and-feel `defaults`. Those had to move
+together — switching to an icon theme that was never installed points kdeglobals at a directory
+that is not there. KDE recovers by falling back, but silently writing a broken setting is not the
+same as leaving the user's icons alone, which is what turning the option down asked for. So the
+`defaults` file became a product with the icon choice, `defaults/<palette>-<on|off>/`, and the
+answer reaches both halves or neither.
+
+Selection is recomputed whenever an answer changes rather than decided once when the model is
+built, since the preference that decides it can be revisited at any point before the review.
 
 What this gives up is real: the Global Theme package cannot be declined, and its `defaults` also
 sets a cursor theme and a splash screen. Those apply only once the Global Theme is picked in System
 Settings, but they are no longer avoidable at install time.
 
-A component whose files are missing is skipped rather than failing the run, and the review screen
-names it. That was the greyed-out checklist row's job, and the review is now the only place left to
+A component that is not installed is named on the review screen, and the two reasons are told
+apart: `unavailable, will be skipped` is a gap in the asset tree, `not selected` is the user's
+answer. That was the greyed-out checklist row's job, and the review is now the only place left to
 say it.
 
 ### One question at a time
 
-Preferences are asked over pages rather than on one screen: colour, then shape, then transparency.
+Preferences are asked over pages rather than on one screen: colour, shape, transparency, icons.
 Each option declares its `group` in the manifest, and the pages are the distinct groups in the
 order they first become visible.
 
@@ -758,7 +782,8 @@ which would break the guarantee that an option only ever chooses bytes.
 
 ## What gets installed
 
-One colour scheme, one Plasma style, one Aurorae theme, one look-and-feel package, one icon theme.
+One colour scheme, one Plasma style, one Aurorae theme, one look-and-feel package, and the icon
+theme if it was asked for.
 Variants never multiply what lands in `~/.local/share`; they only decide which bytes are copied.
 Backups continue to work as described in the README.
 
@@ -774,10 +799,12 @@ Backups continue to work as described in the README.
 ## Open questions
 
 - **Adding an accent is two edits, not one:** the colour in `spec/tokens.json`, and the value in
-  `assets/theme.json` so the installer offers it. The manifest stays hand-written by decision —
-  the README promises that adding a component is an edit to it rather than to the code, and
-  generating it would buy consistency at the cost of that promise. If the two drift often enough
-  to matter, generating the value lists is the fix.
+  `assets/theme.json` so the installer offers it — now carrying the colour a second time, as the
+  swatch the preferences screen draws. The manifest stays hand-written by decision — the README
+  promises that adding a component is an edit to it rather than to the code, and generating it
+  would buy consistency at the cost of that promise. `TestSwatchesMatchTheAccents` closes the gap
+  the copy opens, failing with both values and the instruction to edit them together. If the two
+  drift often enough to matter anyway, generating the value lists is the fix.
 - **`scrollbar.svg` keeps its rounded slider in the square variant.** Its `rx` is 2px on a 6px
   slider, which is close to invisible, and patching it would mean the generator reading and
   rewriting the one Inkscape document in the tree. Worth doing alongside the rewrite, not before.

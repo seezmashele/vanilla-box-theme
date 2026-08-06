@@ -48,9 +48,37 @@ type Component struct {
 	// whether to install one while also asking which one is a contradiction.
 	Required bool `json:"required"`
 
+	// InstalledWhen ties this component to a preference declared elsewhere,
+	// which is how a component becomes optional without a checklist screen: the
+	// question is asked once, among the other preferences, and both the files
+	// and whatever depends on them follow the one answer.
+	InstalledWhen Condition `json:"installedWhen"`
+
 	// Available reports whether Source actually exists in the asset directory.
 	// It is filled in by the availability check, not read from theme.json.
 	Available bool `json:"-"`
+}
+
+// Condition is a preference and the value it has to hold. A zero Condition is
+// no condition at all.
+type Condition struct {
+	Option string `json:"option"`
+	Value  string `json:"value"`
+}
+
+// Empty reports whether the condition names nothing to check.
+func (c Condition) Empty() bool { return c.Option == "" }
+
+// Wanted reports whether a component should be installed, given the choices.
+// It is separate from Available, which is about the asset tree rather than the
+// user: a component can be wanted and missing, and the review screen has to
+// tell those apart.
+func (c Component) Wanted(choices Choices) bool {
+	if !c.InstalledWhen.Empty() {
+		return choices.Values[c.InstalledWhen.Option] == c.InstalledWhen.Value
+	}
+
+	return c.Required || c.Default
 }
 
 // OptionKind is how an option is chosen: a switch with two states, or a choice
@@ -82,6 +110,12 @@ type OptionValue struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+
+	// Swatch is a hex colour the preferences screen draws beside this value, for
+	// choices whose difference is a colour and cannot be read off a name. It is
+	// display only: nothing installed is painted from it, and a value that has
+	// none simply shows no box.
+	Swatch string `json:"swatch"`
 
 	// Overlay is laid over the install when this value is chosen. The value that
 	// matches the artwork as generated leaves it empty and copies nothing.

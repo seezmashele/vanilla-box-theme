@@ -69,6 +69,11 @@ func testTheme(t *testing.T) *theme.Theme {
 				ID: "cursors", Name: "Cursors", Source: "missing",
 				Target: "icons", Required: true, Available: false,
 			},
+			{
+				ID: "extras", Name: "Extras", Source: "style",
+				Target: "extras", Available: true,
+				InstalledWhen: theme.Condition{Option: "tint", Value: "rose"},
+			},
 		},
 	}
 }
@@ -531,4 +536,70 @@ func runInstallStep(t *testing.T, cmd tea.Cmd) tea.Msg {
 
 func renderView(m Model) string {
 	return m.View().Content
+}
+
+// TestConditionalComponentFollowsItsPreference is the mechanism that replaced a
+// component checklist: the question is asked once, among the preferences, and
+// the component follows the answer. The failure it guards is a stale selection
+// — the answer changing while the install queue keeps whatever it decided when
+// the model was built.
+func TestConditionalComponentFollowsItsPreference(t *testing.T) {
+	m := New(testTheme(t))
+
+	extras := func(m Model) bool {
+		for _, it := range m.items {
+			if it.component.ID == "extras" {
+				return it.selected
+			}
+		}
+
+		t.Fatal("no extras component in the fixture")
+
+		return false
+	}
+
+	if extras(m) {
+		t.Error("extras is selected before its preference asks for it")
+	}
+
+	m = rowFor(t, m, "tint", "rose")
+	m, _ = send(m, " ")
+
+	if !extras(m) {
+		t.Error("choosing rose should select extras")
+	}
+
+	m = rowFor(t, m, "tint", "neutral")
+	m, _ = send(m, " ")
+
+	if extras(m) {
+		t.Error("choosing neutral again should deselect extras")
+	}
+}
+
+// TestPaletteRowsCarryTheirColour covers the one thing a name cannot do: a
+// palette is a colour, and "Plum" only tells you which colour if you already
+// know. The box is drawn from the manifest's swatch, so what is on screen and
+// what gets installed come from the same place.
+func TestPaletteRowsCarryTheirColour(t *testing.T) {
+	th := testTheme(t)
+
+	for i, o := range th.Components[1].Options {
+		if o.ID == "tint" {
+			th.Components[1].Options[i].Values[2].Swatch = "#c07a8c"
+		}
+	}
+
+	view := renderView(New(th))
+
+	// The background escape for #c07a8c, which is what a filled box is.
+	if want := "\x1b[48;2;192;122;140m"; !strings.Contains(view, want) {
+		t.Errorf("the rose row should draw its colour")
+	}
+
+	// A value with no swatch draws no box, rather than an empty one that would
+	// leave the rows misaligned with each other.
+	if got := swatch(""); got != "" {
+		t.Errorf("swatch(\"\") = %q, want nothing at all", got)
+	}
 }

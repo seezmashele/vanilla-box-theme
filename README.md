@@ -74,15 +74,21 @@ to that file, not to the code:
 
 `source` is relative to the asset directory; `target` is relative to `~/.local/share`.
 
-All five are marked `required`, so all five install and there is nothing to pick between:
+Four are marked `required` and install always. The fifth carries `installedWhen`, which ties it to
+a preference declared elsewhere — so it is asked about once, among the other preferences, rather
+than through a checklist:
 
-| Component | Installs to |
-| --- | --- |
-| Color scheme | `color-schemes/VanillaBoxDark.colors` |
-| Plasma style | `plasma/desktoptheme/vanilla-box-dark/` |
-| Window decoration | `aurorae/themes/VanillaBoxDark/` |
-| Global theme | `plasma/look-and-feel/org.vanillabox.dark/` |
-| Icons | `icons/VanillaBoxIconsDark/` |
+| Component | Installs to | When |
+| --- | --- | --- |
+| Color scheme | `color-schemes/VanillaBoxDark.colors` | always |
+| Plasma style | `plasma/desktoptheme/vanilla-box-dark/` | always |
+| Window decoration | `aurorae/themes/VanillaBoxDark/` | always |
+| Global theme | `plasma/look-and-feel/org.vanillabox.dark/` | always |
+| Icons | `icons/VanillaBoxIconsDark/` | `Icons` is set to Vanilla Box |
+
+```json
+"installedWhen": { "option": "icons", "value": "on" }
+```
 
 A component whose `source` is missing — or is an empty file or directory — is skipped rather than
 failing the run, and the review screen lists it as `unavailable, will be skipped`. To see that,
@@ -94,17 +100,23 @@ point the installer at a partial tree:
 
 ## Preferences
 
-The preferences are the only thing to decide, and they are asked over three pages:
+The preferences are the only thing to decide, and they are asked over four pages:
 
 | Page | Asks |
 | --- | --- |
 | Colour | the palette |
-| Shape | corners, titlebar corners, window buttons |
+| Shape | panel & popup corners, button & input corners, titlebar corners, window buttons |
 | Transparency | the three switches |
+| Icons | whether to install the icon theme |
 
 `enter` moves to the next page and, from the last, to the review; `esc` steps back. Every value of
 every choice is listed under it, so the alternatives are visible without operating anything. On a
 short terminal a page scrolls, marking how much sits above and below.
+
+A value may carry a `"swatch"` — a hex colour the screen draws as a small filled box beside it. The
+palettes use it, because "Plum" only tells you which colour if you already know. The colour is
+display only, and a test checks each swatch against the accent in `spec/tokens.json` so the box
+cannot show one colour while the install writes another.
 
 Which page a preference appears on is `"group"` in `theme.json`, not something the UI decides, so
 adding an option means saying where it belongs rather than editing a screen.
@@ -120,17 +132,23 @@ adding an option means saying where it belongs rather than editing a screen.
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
 
-Every default is the first value listed, so accepting each prompt installs Neutral, square corners
-throughout and traffic-light buttons — a theme with no rounded corners anywhere.
+A choice's default is `"defaultValue"` in `theme.json` rather than whichever value happens to be
+listed first — the two usually agree, and button corners are where they part: Square is listed
+first because it is the pair to the square panels above it, and Rounded is what installs. Accepting
+each prompt gives Neutral, square panels and popups, rounded buttons and inputs, traffic-light
+window buttons, and your own icons left alone. Square surfaces around rounded controls is the
+shipped look: the edges of the desktop are straight, and the things you click on are not.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of
 them — grey surfaces under a warm tan accent — and the tinted four each carry the tint through the
 surfaces, the selection colour and the titlebar alike.
 
-Everything the theme ships is installed. There is no component checklist: choosing a colour is
-already choosing a colour scheme, and the rest of the theme is what makes that colour mean
-anything. The review screen still lists every file destination before a byte is written.
+There is no component checklist. Choosing a colour is already choosing a colour scheme, and the
+rest of the theme is what makes that colour mean anything, so the four core components install
+without being asked about. The one thing that *is* a real choice — the icon theme, which replaces
+every icon on the desktop — is asked as a preference like any other. The review screen lists every
+file destination before a byte is written, and names anything it is leaving out.
 
 Corners are three preferences rather than one, because the three are independent in practice.
 Rounded panels around square buttons is a real look; so is a rounded titlebar over square

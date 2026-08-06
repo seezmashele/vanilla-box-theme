@@ -612,7 +612,13 @@ func installShipped(t *testing.T, set func(Choices)) (*Theme, string) {
 		set(choices)
 	}
 
+	// Installing what the choices call for, the way the UI does. A component
+	// tied to a preference is skipped when the answer says so, and a test that
+	// installed it anyway would be testing something no user can reach.
 	for _, c := range theme.Components {
+		if !c.Wanted(choices) {
+			continue
+		}
 		if err := theme.Install(c, choices); err != nil {
 			t.Fatalf("install %s: %v", c.ID, err)
 		}
@@ -749,7 +755,7 @@ func componentByID(t *testing.T, theme *Theme, id string) Component {
 // so Inherits is what decides whether an unmapped icon is a Breeze icon or a
 // missing-image square.
 func TestIconsInstallAndInheritBreeze(t *testing.T) {
-	theme, _ := installShipped(t, nil)
+	theme, _ := installShipped(t, func(ch Choices) { ch.Values["icons"] = "on" })
 
 	icons := theme.TargetPath(componentByID(t, theme, "icons"))
 
@@ -780,16 +786,41 @@ func TestIconsInstallAndInheritBreeze(t *testing.T) {
 	}
 }
 
-// TestGlobalThemeAppliesTheIcons is the other half: the files being installed
-// is not the same as Plasma using them, and the look-and-feel defaults are what
-// switch the icon theme when the global theme is picked.
-func TestGlobalThemeAppliesTheIcons(t *testing.T) {
+// TestIconsChoiceReachesTheGlobalTheme covers both halves of one answer. The
+// files being installed is not the same as Plasma using them, and the two have
+// to agree in both directions: switching to an icon theme that was never
+// installed points kdeglobals at nothing, and installing one the global theme
+// never names is work the user does not see.
+func TestIconsChoiceReachesTheGlobalTheme(t *testing.T) {
+	const line = "[kdeglobals][Icons]\nTheme=VanillaBoxIconsDark"
+
+	for choice, want := range map[string]bool{"on": true, "off": false} {
+		t.Run(choice, func(t *testing.T) {
+			theme, _ := installShipped(t, func(ch Choices) { ch.Values["icons"] = choice })
+
+			defaults := readFile(t, filepath.Join(
+				theme.TargetPath(componentByID(t, theme, "global-theme")), "contents", "defaults"))
+
+			if got := strings.Contains(defaults, line); got != want {
+				t.Errorf("with icons %s, the global theme names the icon theme = %v, want %v:\n%s",
+					choice, got, want, defaults)
+			}
+
+			icons := componentByID(t, theme, "icons")
+			if _, err := os.Stat(theme.TargetPath(icons)); (err == nil) != want {
+				t.Errorf("with icons %s, installed = %v, want %v", choice, err == nil, want)
+			}
+		})
+	}
+}
+
+// TestIconsAreOffByDefault pins the shipped answer. The icon theme replaces
+// every icon on the desktop, which is the largest thing this installer can do
+// to a machine, and it is not what accepting every prompt should do.
+func TestIconsAreOffByDefault(t *testing.T) {
 	theme, _ := installShipped(t, nil)
 
-	defaults := readFile(t, filepath.Join(
-		theme.TargetPath(componentByID(t, theme, "global-theme")), "contents", "defaults"))
-
-	if !strings.Contains(defaults, "[kdeglobals][Icons]\nTheme=VanillaBoxIconsDark") {
-		t.Errorf("the global theme does not switch to the icon theme:\n%s", defaults)
+	if _, err := os.Stat(theme.TargetPath(componentByID(t, theme, "icons"))); !os.IsNotExist(err) {
+		t.Errorf("the icons were installed without being asked for: %v", err)
 	}
 }

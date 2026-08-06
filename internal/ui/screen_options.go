@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
+
 	"vanillabox/internal/theme"
 )
 
@@ -95,7 +97,7 @@ func (m Model) renderRow(i int, row optionRow) string {
 			mark, style = "(•)", m.styles.selected
 		}
 
-		out := cursor + "  " + style.Render(mark+" "+row.value.Name)
+		out := cursor + "  " + style.Render(mark) + swatch(row.value.Swatch) + style.Render(" "+row.value.Name)
 		if row.value.Description != "" {
 			out += " " + m.styles.dimmed.Render(row.value.Description)
 		}
@@ -105,6 +107,21 @@ func (m Model) renderRow(i int, row optionRow) string {
 	default:
 		return cursor + m.renderToggle(row.option)
 	}
+}
+
+// swatch draws the colour a value stands for as a small filled box, so a
+// palette can be seen rather than only read. A value with no colour renders
+// nothing at all — not an empty box, which would put every other row out of
+// alignment with itself for no reason.
+//
+// The box is background rather than a block glyph: a filled cell is the same
+// size in every font, where ▉ and █ are not.
+func swatch(colour string) string {
+	if colour == "" {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Background(lipgloss.Color(colour)).Render("  ")
 }
 
 func (m Model) renderToggle(o theme.Option) string {

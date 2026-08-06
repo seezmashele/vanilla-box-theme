@@ -35,16 +35,21 @@ func (m Model) confirmView() string {
 		}
 	}
 
-	// Everything the theme ships is installed, so a component missing from the
-	// list above was left out by a gap in the asset tree rather than by choice.
-	// Saying so here is the only place it now gets said.
+	// A component missing from the list above was either turned down or is not
+	// in the asset tree, and the two need telling apart: one is the user's doing
+	// and the other is a gap in the build. This is the only place either is said.
 	for _, it := range m.items {
 		if it.selected {
 			continue
 		}
 
+		reason := "unavailable, will be skipped"
+		if it.component.Available {
+			reason = "not selected"
+		}
+
 		b.WriteString(m.styles.dimmed.Render(
-			"  • " + it.component.Name + " — unavailable, will be skipped",
+			"  • " + it.component.Name + " — " + reason,
 		))
 		b.WriteString("\n")
 	}

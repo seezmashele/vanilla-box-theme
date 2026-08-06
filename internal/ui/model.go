@@ -93,12 +93,14 @@ func New(t *theme.Theme) Model {
 	items := make([]item, len(t.Components))
 	choices := t.DefaultChoices()
 
-	// Every component the theme ships is installed. One whose files are missing
-	// is left out rather than failing the run, and the review screen says so.
+	// Almost every component the theme ships is installed. One whose files are
+	// missing is left out rather than failing the run, and the review screen
+	// says so; one whose installation hangs off a preference follows that
+	// preference, and is refreshed whenever the answer changes.
 	for i, c := range t.Components {
 		items[i] = item{
 			component: c,
-			selected:  (c.Default || c.Required) && c.Available,
+			selected:  c.Wanted(choices) && c.Available,
 		}
 	}
 
@@ -315,6 +317,18 @@ func (m *Model) chooseAtCursor() {
 		m.choices.Values[row.option.ID] = row.value.ID
 	case rowToggle:
 		m.choices.Toggles[row.option.ID] = !m.choices.Toggles[row.option.ID]
+	}
+
+	m.refreshSelection()
+}
+
+// refreshSelection re-asks which components the current answers call for. A
+// component tied to a preference changes with it, and the review screen and the
+// install queue both read the result rather than recomputing it.
+func (m *Model) refreshSelection() {
+	for i := range m.items {
+		c := m.items[i].component
+		m.items[i].selected = c.Wanted(m.choices) && c.Available
 	}
 }
 
