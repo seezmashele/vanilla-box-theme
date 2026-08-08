@@ -24,27 +24,33 @@ type colorSet struct {
 // scheme renders a KColorScheme ini. The same content serves the application
 // colour scheme and the Plasma style's own colors file; they differ only in the
 // [General] ColorScheme key, which names the scheme by id in one and by display
-// name in the other.
+// name in the other, and in what they answer for WindowOnView.
 type scheme struct {
 	palette map[string]string
 	accent  string
 	status  map[string]string
 
-	// SidebarOnView puts the window background on the view colour, so a places
-	// panel stops reading as a lighter strip beside the file list it belongs to.
+	// WindowOnView puts the window background on the view colour. Two different
+	// questions ask for it, one per file, which is why it is spelled as the role
+	// it moves rather than as either of them.
 	//
-	// KColorScheme has no sidebar role. Dolphin's panel — and every other dock
-	// panel in a KDE app — paints with the window background, which is why it
-	// matches the toolbar rather than the list. Moving that one role is the only
-	// lever there is, so this reaches every window background, not just panels.
+	// In the application scheme it is the sidebar option. KColorScheme has no
+	// sidebar role: Dolphin's places panel — and every other dock panel in a KDE
+	// app — paints with the window background, which is why it matches the
+	// toolbar rather than the list. Moving that one role is the only lever there
+	// is, so it reaches every window background, not just panels.
+	//
+	// In the Plasma style's copy it is the darker-panels option. The shell's
+	// backgrounds — the panel strip, the launcher, applet popups — all carry
+	// ColorScheme-Background, which resolves against this same role.
 	//
 	// Header deliberately stays behind, which is the one place this breaks the
 	// rule that Window, Header and Complementary move together: keeping the
-	// toolbar on the chrome colour is the whole point of the option, since a
-	// sidebar that merges with the list still wants a strip above it that does
-	// not. Complementary follows Window so the pair a widget might resolve
-	// against cannot disagree.
-	SidebarOnView bool
+	// toolbar on the chrome colour is the whole point of the sidebar option,
+	// since a sidebar that merges with the list still wants a strip above it
+	// that does not. Complementary follows Window so the pair a widget might
+	// resolve a plain surface against cannot disagree.
+	WindowOnView bool
 
 	SchemeKey string
 	Name      string
@@ -55,14 +61,14 @@ func (s scheme) render() string {
 	a := map[string]string{"highlight": s.accent}
 
 	window := p["background"]
-	if s.SidebarOnView {
+	if s.WindowOnView {
 		window = p["view"]
 	}
 
 	sets := []colorSet{
 		{Name: "Button", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["elevated"], DecorationFocus: p["elevated"]},
 		{Name: "Complementary", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: window, DecorationFocus: p["focusDim"]},
-		// Header is the one background that does not follow the sidebar: the
+		// Header is the one background that stays on the chrome colour: the
 		// toolbar above a merged panel and list is what keeps them readable.
 		{Name: "Header", BackgroundAlt: p["backgroundAlt"], BackgroundNormal: p["background"], DecorationFocus: p["background"]},
 		{

@@ -135,6 +135,20 @@ const (
 	sidebarView    = "view"
 	defaultSidebar = sidebarView
 
+	// The two points on the panel tint axis, which is the same move made in the
+	// shell's copy of the scheme rather than in the application one.
+	//
+	// It is a separate axis because the two files have separate readers and
+	// nothing in Plasma ties them: the sidebar question is about a dock panel in
+	// a Qt application, and the shell has no sidebar to answer it for. Off is
+	// the default, which leaves the panel and the launcher on the chrome colour
+	// the toolbars and the titlebar already use. On is worth having anyway — a
+	// desktop where every surface but the toolbars is the view colour is a
+	// coherent look, just not the shipped one.
+	panelChrome  = "off"
+	panelDark    = "on"
+	defaultPanel = panelChrome
+
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30
 	titleBorder = 1
@@ -328,17 +342,24 @@ func variants(tk *tokens) (map[string]string, error) {
 	out := map[string]string{}
 
 	for name := range tk.Palettes {
-		// A product with the sidebar choice: both files carry the window
-		// background, and that is the role the choice moves.
+		// The two schemes take one axis each rather than one between them. Both
+		// carry the window background, but they are read by different things and
+		// asked about separately: applications answer the sidebar question, the
+		// shell answers the panel one.
 		for _, sidebar := range []string{sidebarWindow, sidebarView} {
-			app, shell, err := schemes(tk, name, sidebar)
+			app, err := appScheme(tk, name, sidebar)
 			if err != nil {
 				return nil, err
 			}
+			out[variantDir+"/colors/app/"+name+"-"+sidebar+"/VanillaBoxDark.colors"] = app
+		}
 
-			dir := variantDir + "/colors/" + name + "-" + sidebar
-			out[dir+"/VanillaBoxDark.colors"] = app
-			out[dir+"/colors"] = shell
+		for _, panel := range []string{panelChrome, panelDark} {
+			shell, err := shellScheme(tk, name, panel)
+			if err != nil {
+				return nil, err
+			}
+			out[variantDir+"/colors/shell/"+name+"-"+panel+"/colors"] = shell
 		}
 
 		// The window decoration is the only artwork that paints a palette colour
@@ -487,24 +508,49 @@ func frames(tk *tokens, palette map[string]string, radii map[string]float64, tra
 	}
 }
 
-// schemes renders the application colour scheme and the Plasma style's copy for
-// one tint and accent. They differ only in how they name themselves.
-func schemes(tk *tokens, name, sidebar string) (app, shell string, err error) {
+// appScheme renders the colour scheme applications read, for one tint and one
+// answer to the sidebar question.
+func appScheme(tk *tokens, name, sidebar string) (string, error) {
+	s, err := tk.baseScheme(name)
+	if err != nil {
+		return "", err
+	}
+
+	// The id, which is what kdeglobals names and what the look-and-feel package
+	// asks for.
+	s.SchemeKey = "VanillaBoxDark"
+	s.WindowOnView = sidebar == sidebarView
+
+	return s.render(), nil
+}
+
+// shellScheme renders the Plasma style's own copy, for one tint and one answer
+// to the panel question. Without this file the shell falls back to the system
+// scheme and a tint reaches applications but not the panel.
+func shellScheme(tk *tokens, name, panel string) (string, error) {
+	s, err := tk.baseScheme(name)
+	if err != nil {
+		return "", err
+	}
+
+	// Plasma's own styles name their scheme by display name here, not by id.
+	s.SchemeKey = "Vanilla Box Dark"
+	s.WindowOnView = panel == panelDark
+
+	return s.render(), nil
+}
+
+// baseScheme is everything the two schemes agree on: the surfaces, the accent
+// and the status colours for one palette.
+func (tk *tokens) baseScheme(name string) (scheme, error) {
 	palette, accent, err := tk.colours(name)
 	if err != nil {
-		return "", "", err
+		return scheme{}, err
 	}
 
-	base := scheme{
+	return scheme{
 		palette: palette, accent: accent, status: tk.Status, Name: "Vanilla Box Dark",
-		SidebarOnView: sidebar == sidebarView,
-	}
-
-	a, s := base, base
-	a.SchemeKey = "VanillaBoxDark"
-	s.SchemeKey = "Vanilla Box Dark"
-
-	return a.render(), s.render(), nil
+	}, nil
 }
 
 // titlebarButtons renders the four buttons and the layout file for one button
@@ -586,26 +632,25 @@ func (tk *tokens) decoration(name, decoShape string) (string, error) {
 // build returns every generated file for one point in the variant space, keyed
 // by repository-relative slash path.
 func build(tk *tokens, name, containerShape, elementShape, decoShape, buttons string) (map[string]string, error) {
-	palette, acc, err := tk.colours(name)
+	_, acc, err := tk.colours(name)
 	if err != nil {
 		return nil, err
 	}
 	out := map[string]string{}
 
-	// The application scheme names itself by id; the Plasma style's copy names
-	// itself the way Plasma's own themes do, by display name.
-	base := scheme{
-		palette: palette, accent: acc, status: tk.Status, Name: "Vanilla Box Dark",
-		SidebarOnView: defaultSidebar == sidebarView,
+	// The shipped pair, each at its own default: applications get the merged
+	// sidebar, the shell keeps its panel on the chrome colour.
+	app, err := appScheme(tk, name, defaultSidebar)
+	if err != nil {
+		return nil, err
 	}
+	out[schemeDir+"/VanillaBoxDark.colors"] = app
 
-	app := base
-	app.SchemeKey = "VanillaBoxDark"
-	out[schemeDir+"/VanillaBoxDark.colors"] = app.render()
-
-	shell := base
-	shell.SchemeKey = "Vanilla Box Dark"
-	out[style+"/colors"] = shell.render()
+	shell, err := shellScheme(tk, name, defaultPanel)
+	if err != nil {
+		return nil, err
+	}
+	out[style+"/colors"] = shell
 
 	// The theme root carries the translucent artwork. Plasma falls back to the
 	// opaque/ and solid/ prefixes itself when compositing is off, so both ship

@@ -347,6 +347,72 @@ func TestPalettesAreDistinct(t *testing.T) {
 	}
 }
 
+// TestPanelTintAndSidebarAreSeparateInstalls is the decoupling as a user meets
+// it. Both questions move the window background, but they move it in different
+// files: the sidebar reaches applications, the panel reaches the shell. They
+// shared one variant tree once, and choosing the merged sidebar darkened the
+// panel and the launcher along with it.
+func TestPanelTintAndSidebarAreSeparateInstalls(t *testing.T) {
+	const (
+		chrome = "41,41,41"
+		view   = "20,20,20"
+	)
+
+	// The window background of each file, which is the role both questions move
+	// and the only one that has to be read to tell them apart.
+	windows := func(sidebar, panel string) (app, shell string) {
+		t.Helper()
+
+		theme, style := installShipped(t, func(ch Choices) {
+			ch.Values["sidebar"] = sidebar
+			ch.Values["panel-tint"] = panel
+		})
+
+		return windowBackground(t, readFile(t, theme.TargetPath(theme.Components[0]))),
+			windowBackground(t, readFile(t, filepath.Join(style, "colors")))
+	}
+
+	for _, tc := range []struct {
+		sidebar, panel string
+		app, shell     string
+	}{
+		{"view", "off", view, chrome},
+		{"window", "off", chrome, chrome},
+		{"view", "on", view, view},
+		{"window", "on", chrome, view},
+	} {
+		app, shell := windows(tc.sidebar, tc.panel)
+		if app != tc.app {
+			t.Errorf("sidebar=%s panel-tint=%s: application window background = %s, want %s",
+				tc.sidebar, tc.panel, app, tc.app)
+		}
+		if shell != tc.shell {
+			t.Errorf("sidebar=%s panel-tint=%s: shell window background = %s, want %s",
+				tc.sidebar, tc.panel, shell, tc.shell)
+		}
+	}
+}
+
+// windowBackground reads [Colors:Window] BackgroundNormal out of a scheme.
+func windowBackground(t *testing.T, ini string) string {
+	t.Helper()
+
+	_, after, ok := strings.Cut(ini, "[Colors:Window]\n")
+	if !ok {
+		t.Fatal("scheme has no window set")
+	}
+
+	for _, line := range strings.Split(after, "\n") {
+		if v, found := strings.CutPrefix(line, "BackgroundNormal="); found {
+			return v
+		}
+	}
+
+	t.Fatal("the window set has no BackgroundNormal")
+
+	return ""
+}
+
 // TestSquareSurfacesSurviveTheTransparencySwitches is the interaction the
 // placeholder in an overlay path exists for. The square variant is laid down
 // first; turning a surface opaque then copies that one file again, and it has

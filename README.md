@@ -133,6 +133,7 @@ and every other page with them.
 | --- | --- | --- |
 | Surfaces | Neutral, Slate, Plum, Rose, Forest | the tint of every surface — and, quietly, the accent that goes with it |
 | Sidebar background | Match the file list, Match the window | places panels in Dolphin, Kate and friends — and every other window background |
+| Darker panels & popups | Match the toolbars, Darker | the panel strip, the launcher and applet popups |
 | Titlebar corners | Square, Rounded | the top corners of the window frame |
 | Window buttons | Symbols, Traffic lights | close, minimise and maximise |
 | Panel & popup corners | Square, Rounded | the panel strip, menus, tooltips, applet backgrounds |
@@ -145,8 +146,9 @@ A choice's default is `"defaultValue"` in `theme.json` rather than whichever val
 listed first, and the two are free to disagree: the cursor opens on the value already selected, not
 on the first line, so a choice can list its values in whatever order reads best. Button & input
 corners offers Square first and still installs Rounded. Accepting every prompt gives Neutral, a
-sidebar merged into the file list, square titlebars, panels and popups with rounded buttons and
-inputs inside them, symbol window buttons, and your own icons left alone.
+sidebar merged into the file list, a panel at the toolbar colour, square titlebars, panels and
+popups with rounded buttons and inputs inside them, symbol window buttons, and your own icons left
+alone.
 
 **Sidebar background** is blunter than its name suggests, and it is the one default worth reading
 before accepting. KDE colour schemes have no sidebar role: a places panel paints with the *window*
@@ -155,8 +157,17 @@ match the list means moving the window background itself, so every window backgr
 dialogs, settings pages, message boxes. Toolbars and headers stay put, because they read from a
 separate role, so a merged panel and list still sit under a strip that reads as chrome.
 
-The merged look is what the theme is going for, so it ships as the default and the darker desktop
-comes with it. Choose **Match the window** if you would rather KDE's own arrangement stayed put.
+The merged look is what the theme is going for, so it ships as the default. Choose **Match the
+window** if you would rather KDE's own arrangement stayed put.
+
+**Darker panels & popups** is the same move made on the desktop instead, and it is a separate
+question because the desktop has no sidebar to ask about. The panel strip, the launcher and every
+applet popup read their background from the Plasma style's own colour file, so they can be darkened
+without touching any application, or left alone while every application goes dark. The default
+leaves them at the chrome colour, which is where the toolbars and the titlebar already sit: dark
+window bodies under a panel that reads as chrome. Choose **Darker** if you would rather the whole
+desktop dropped to the file-list colour — the one thing you give up is the tooltip, which is on
+that colour deliberately and stops standing off the popups it appears over.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of

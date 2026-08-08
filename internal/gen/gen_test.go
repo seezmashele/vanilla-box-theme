@@ -255,42 +255,140 @@ func TestUnoutlinedFramesAreUntouched(t *testing.T) {
 // Header staying put is the point: a sidebar merged with the file list still
 // wants a toolbar above it that is not.
 func TestSidebarMovesOnlyTheWindowBackground(t *testing.T) {
+	tk := testTokens(t)
+
+	windowed, err := appScheme(tk, defaultPalette, sidebarWindow)
+	if err != nil {
+		t.Fatalf("appScheme: %v", err)
+	}
+	viewed, err := appScheme(tk, defaultPalette, sidebarView)
+	if err != nil {
+		t.Fatalf("appScheme: %v", err)
+	}
+
+	assertWindowBackgroundMove(t, tk, "sidebar", windowed, viewed)
+}
+
+// TestPanelTintMovesOnlyTheShell is the same pinning for the shell's copy of
+// the scheme, which asks its own question: the panel, the launcher and applet
+// popups all resolve ColorScheme-Background against [Colors:Window], so they
+// move together and nothing else may.
+func TestPanelTintMovesOnlyTheShell(t *testing.T) {
+	tk := testTokens(t)
+
+	chrome, err := shellScheme(tk, defaultPalette, panelChrome)
+	if err != nil {
+		t.Fatalf("shellScheme: %v", err)
+	}
+	dark, err := shellScheme(tk, defaultPalette, panelDark)
+	if err != nil {
+		t.Fatalf("shellScheme: %v", err)
+	}
+
+	assertWindowBackgroundMove(t, tk, "panel-tint", chrome, dark)
+}
+
+// TestTheTwoSchemesTakeSeparateAxes is the decoupling itself. The sidebar
+// question is about a dock panel in a Qt application and the panel question is
+// about the desktop; they move the same role in two different files, and the
+// files have to be able to disagree. Sharing a flag once made choosing the
+// merged sidebar darken the panel as a side effect.
+func TestTheTwoSchemesTakeSeparateAxes(t *testing.T) {
+	tk := testTokens(t)
+
+	for _, palette := range []string{defaultPalette, "forest"} {
+		app := make([]string, 0, 2)
+		for _, sidebar := range []string{sidebarWindow, sidebarView} {
+			s, err := appScheme(tk, palette, sidebar)
+			if err != nil {
+				t.Fatalf("appScheme: %v", err)
+			}
+			app = append(app, s)
+		}
+
+		shell := make([]string, 0, 2)
+		for _, panel := range []string{panelChrome, panelDark} {
+			s, err := shellScheme(tk, palette, panel)
+			if err != nil {
+				t.Fatalf("shellScheme: %v", err)
+			}
+			shell = append(shell, s)
+		}
+
+		// Each axis moves its own file, and the manifest resolves the two from
+		// separate trees, so neither can reach the other's.
+		if app[0] == app[1] {
+			t.Errorf("%s: the sidebar choice leaves the application scheme unchanged", palette)
+		}
+		if shell[0] == shell[1] {
+			t.Errorf("%s: the panel choice leaves the shell scheme unchanged", palette)
+		}
+	}
+}
+
+// TestTooltipSitsOffThePopupBackground guards the surface the tooltip is for.
+// It is the one container deliberately on the view colour, so that it reads as
+// a dark card over whatever it covers rather than as one more shade of it —
+// which stops being true the moment the popups it appears over are the view
+// colour too.
+func TestTooltipSitsOffThePopupBackground(t *testing.T) {
+	tk := testTokens(t)
+
+	shipped, err := shellScheme(tk, defaultPalette, defaultPanel)
+	if err != nil {
+		t.Fatalf("shellScheme: %v", err)
+	}
+
+	popup, tooltip := background(shipped, "Window"), background(shipped, "Tooltip")
+	if popup == tooltip {
+		t.Errorf("popups and tooltips both paint %s, so a tooltip over a popup "+
+			"shows only its outline", popup)
+	}
+}
+
+// assertWindowBackgroundMove checks one scheme rendered at both ends of an axis
+// that moves the window background. Both axes move the same role in the same
+// way, so they are worth holding to one table: what varies between them is only
+// which file is asking.
+func assertWindowBackgroundMove(t *testing.T, tk *tokens, axis, held, moved string) {
+	t.Helper()
+
+	surfaces := tk.Surfaces[tk.Palettes[defaultPalette].Surfaces]
+	chrome, view := rgb(surfaces["background"]), rgb(surfaces["view"])
+
+	for _, tc := range []struct {
+		section     string
+		held, moved string
+		description string
+	}{
+		{"Window", chrome, view, "the role the choice paints with"},
+		{"Complementary", chrome, view, "follows Window so the two cannot disagree"},
+		{"Header", chrome, chrome, "the toolbar stays on the chrome colour"},
+		{"View", view, view, "already the view colour; the option is what meets it"},
+		{"Tooltip", view, view, "a card over the surface, not the surface"},
+	} {
+		if got := background(moved, tc.section); got != tc.moved {
+			t.Errorf("%s moved: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
+				axis, tc.section, got, tc.moved, tc.description)
+		}
+		if got := background(held, tc.section); got != tc.held {
+			t.Errorf("%s held: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
+				axis, tc.section, got, tc.held, tc.description)
+		}
+	}
+}
+
+// testTokens loads the theme's own tokens, which is what every test that cares
+// about a colour measures against.
+func testTokens(t *testing.T) *tokens {
+	t.Helper()
+
 	tk, err := loadTokens(filepath.Join("../..", "spec", "tokens.json"))
 	if err != nil {
 		t.Fatalf("loadTokens: %v", err)
 	}
 
-	surfaces := tk.Surfaces[tk.Palettes[defaultPalette].Surfaces]
-	chrome, view := rgb(surfaces["background"]), rgb(surfaces["view"])
-
-	windowed, _, err := schemes(tk, defaultPalette, sidebarWindow)
-	if err != nil {
-		t.Fatalf("schemes: %v", err)
-	}
-	viewed, _, err := schemes(tk, defaultPalette, sidebarView)
-	if err != nil {
-		t.Fatalf("schemes: %v", err)
-	}
-
-	for _, tc := range []struct {
-		section     string
-		off, on     string
-		description string
-	}{
-		{"Window", chrome, view, "the role the sidebar paints with"},
-		{"Complementary", chrome, view, "follows Window so the two cannot disagree"},
-		{"Header", chrome, chrome, "the toolbar stays on the chrome colour"},
-		{"View", view, view, "already the view colour; the option is what meets it"},
-	} {
-		if got := background(viewed, tc.section); got != tc.on {
-			t.Errorf("sidebar=view: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
-				tc.section, got, tc.on, tc.description)
-		}
-		if got := background(windowed, tc.section); got != tc.off {
-			t.Errorf("sidebar=window: [Colors:%s] BackgroundNormal = %s, want %s (%s)",
-				tc.section, got, tc.off, tc.description)
-		}
-	}
+	return tk
 }
 
 // background reads one section's BackgroundNormal out of a rendered scheme.
@@ -561,6 +659,7 @@ func TestManifestDefaultsMatchTheShippedArtwork(t *testing.T) {
 	want := map[string]string{
 		"palette":    defaultPalette,
 		"sidebar":    defaultSidebar,
+		"panel-tint": defaultPanel,
 		"containers": defaultContainers,
 		"elements":   defaultElements,
 		"titlebar":   defaultTitlebar,

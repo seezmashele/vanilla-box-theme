@@ -14,7 +14,7 @@
       "required": true,
       "resolved": [
         {
-          "source": "variants/colors/{palette}-{sidebar}/VanillaBoxDark.colors",
+          "source": "variants/colors/app/{palette}-{sidebar}/VanillaBoxDark.colors",
           "target": ""
         }
       ]
@@ -79,6 +79,26 @@
               "id": "window",
               "name": "Match the window",
               "description": "a lighter strip beside the file list, as KDE ships it"
+            }
+          ]
+        },
+        {
+          "id": "panel-tint",
+          "name": "Darker panels & popups",
+          "description": "The panel strip, the launcher and applet popups",
+          "group": "Surface colour",
+          "kind": "select",
+          "defaultValue": "off",
+          "values": [
+            {
+              "id": "off",
+              "name": "Match the toolbars",
+              "description": "the panel sits at the chrome colour, as the titlebars do"
+            },
+            {
+              "id": "on",
+              "name": "Darker",
+              "description": "the panel and its popups drop to the file-list colour"
             }
           ]
         },
@@ -177,7 +197,7 @@
       ],
       "resolved": [
         {
-          "source": "variants/colors/{palette}-{sidebar}/colors",
+          "source": "variants/colors/shell/{palette}-{panel-tint}/colors",
           "target": "colors"
         }
       ]

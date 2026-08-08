@@ -31,24 +31,29 @@ instead, because **each axis owns a disjoint set of files**.
 | Axis | Default | Mechanism | Files it owns |
 | --- | --- | --- | --- |
 | Palette | `neutral` | runtime, plus one SVG | the two `colors` files, the look-and-feel `defaults`, `decoration.svg` |
-| Sidebar | `window` | runtime, as a product with the palette | the two `colors` files |
-| Container shape | `rounded` | baked | the four frames across three prefixes |
+| Sidebar | `view` | runtime, as a product with the palette | `color-schemes/VanillaBoxDark.colors` |
+| Panel tint | `off` | runtime, as a product with the palette | the style's `colors` |
+| Container shape | `square` | baked | the four frames across three prefixes |
 | Element shape | `rounded` | baked | `button`, `lineedit`, `viewitem` |
-| Titlebar shape | `rounded` | baked | `aurorae/decoration.svg`, as a product with the palette |
-| Button style | `mac` | baked | the four button SVGs and `VanillaBoxDarkrc` |
-| Transparency (x4) | all on | per-file overlay | one file each, from `opaque/` |
+| Titlebar shape | `square` | baked | `aurorae/decoration.svg`, as a product with the palette |
+| Button style | `windows` | baked | the four button SVGs and `VanillaBoxDarkrc` |
+| Transparency (x3) | all on | per-file overlay | one file each, from `opaque/` |
 | Icons | `off` | whole component, plus the `defaults` as a product | `icons/VanillaBoxIconsDark/`, `[kdeglobals][Icons]` |
 
-Rounded is the default on all three shape axes, and each lists `rounded` before `square` so the
-shipped answer is the one the cursor starts on. The theme shipped square containers and titlebars
-first, on the reasoning that straight edges where the desktop ends read as deliberate; softened
-corners throughout turned out to read as the more finished default, and a square desktop is still
-three keystrokes away.
+The shape defaults split along what a surface is for. The two axes that own the surfaces a thing
+sits in — containers and titlebars — ship square, because a straight edge where the desktop ends
+reads as deliberate; the axis that owns the things sitting inside them ships rounded, because a
+square button is mostly just a square button. Square is also the only titlebar shape without a
+compromise, for the Aurorae reason below.
+
+All three list `square` first even though elements installs `rounded`, which is allowed: the cursor
+opens on the value already selected rather than on the first row, so the listing order is
+presentational.
 
 They stay separate axes because the questions are genuinely independent — rounded panels under a
 square titlebar is a combination someone will want, and so is a square popup around rounded
-buttons — and because only the titlebar carries the Aurorae limitation below. Sharing a default is
-not the same as being one question.
+buttons — and because only the titlebar carries the Aurorae limitation below. Containers and the
+titlebar happen to ship the same answer; sharing a default is not the same as being one question.
 
 Containers and elements were one axis at first, on the reasoning that a corner radius is a corner
 radius. They are not: the surfaces a thing sits in and the things sitting in it are separately
@@ -155,8 +160,8 @@ rather than by count.
 - `Window`, `Header` and `Complementary` backgrounds move together within a surface set. Plasma
   resolves a surface against one of the three depending on the widget's colour set; keeping them
   means never having to work out which. The current scheme already satisfies this at `41,41,41`.
-  The sidebar option is the one sanctioned exception, and it breaks the rule in the narrowest way
-  it can — see below.
+  The two window-background options are the one sanctioned exception, and they break the rule in
+  the narrowest way they can — see below.
 - `.ColorScheme-ButtonHover` reads `[Colors:Button] DecorationHover`. `button.svg` says `#9e9e9e`
   and the scheme says `158,158,158`; both must be emitted from one token so they cannot drift.
 - `Colors:Selection` comes from the palette's accent, not from its surfaces. It is the one role
@@ -170,25 +175,56 @@ rather than by count.
   shows. They should stay accurate for the default palette, but do not drive rendering.
   `TestShippedStyleFollowsTheColorScheme` guards the deferral itself.
 
-### The sidebar option
+### Moving the window background
 
-KColorScheme has no sidebar role. A places panel — Dolphin's, Kate's, anything in a `QDockWidget` —
-paints with the window background, which is why it matches the toolbar rather than the list beside
-it. So "make the sidebar the view colour" can only be spelled as "move `[Colors:Window]
-BackgroundNormal` to the view colour", and that reaches every window background in every Qt app,
-not just panels. Dialogs, settings pages and message boxes go dark with it. This is why it is an
-option and not the default.
+Two options move `[Colors:Window] BackgroundNormal` onto the view colour. They are the same edit to
+two different files, asked as two questions, and the reason they are two is worth writing down.
 
-`Header` deliberately does not follow. It is the one place the move-together rule above is broken,
-and breaking it is the point: a sidebar merged into the file list still wants a toolbar above it
-that is not, and `Header` is the role that draws it. `Complementary` does follow `Window`, so of
-the two roles a widget might resolve a plain window surface against, neither can disagree with the
-other.
+**The sidebar option**, in the application scheme. KColorScheme has no sidebar role. A places panel
+— Dolphin's, Kate's, anything in a `QDockWidget` — paints with the window background, which is why
+it matches the toolbar rather than the list beside it. So "make the sidebar the view colour" can
+only be spelled as "move the window background", and that reaches every window background in every
+Qt app, not just panels. Dialogs, settings pages and message boxes go dark with it.
 
-The choice is a product with the palette rather than an overlay, because both `colors` files carry
-the window background and there is no file to swap that does not also carry the tint —
-`variants/colors/{palette}-{sidebar}/`, ten directories for five palettes.
-`TestSidebarMovesOnlyTheWindowBackground` pins which sections are allowed to move.
+**The panel tint option**, in the style's own `colors`. Every background the shell paints —
+`panel-background.svg`, `dialogs/background.svg`, `widgets/background.svg`, and their `opaque/` and
+`solid/` copies — carries `ColorScheme-Background`, which resolves against the same role. So the
+panel strip, the launcher and every applet popup move together, and nothing else on the desktop
+does.
+
+`Header` deliberately does not follow, in either file. It is the one place the move-together rule
+above is broken, and breaking it is the point: a sidebar merged into the file list still wants a
+toolbar above it that is not, and `Header` is the role that draws it. `Complementary` does follow
+`Window`, so of the two roles a widget might resolve a plain window surface against, neither can
+disagree with the other.
+
+#### Why they are two axes and not one
+
+They shared a flag once, and choosing the merged sidebar darkened the panel and the launcher as a
+side effect. Nothing in Plasma ties the two files, and two things argue for keeping them apart:
+
+- **The shell has no `Header` to fall back on.** The escape hatch that makes the move tolerable in
+  an application — a toolbar left on the chrome colour above the merged panel and list — does not
+  exist on the desktop. `plasmoidheading.svg` is `fill:none` throughout, so nothing in the style
+  paints `Header` at all, and a dark panel leaves no chrome-coloured surface anywhere on screen.
+- **`Colors:Tooltip` stops meaning anything.** The tooltip is deliberately on the view colour so it
+  reads as a card over what it covers. Move the popups there too and the two are the same colour,
+  leaving a tooltip over a launcher distinguishable only by its outline.
+  `TestTooltipSitsOffThePopupBackground` pins the gap.
+
+With the panel on the chrome colour it matches the toolbars and the titlebar, which paints
+`background` regardless of either option: chrome is the panel, the toolbars and the titlebar; the
+view colour is the file list, the sidebar and the window body. That is why `off` is the default,
+and why `on` is still worth offering — a desktop where everything but the toolbars is the view
+colour is a coherent look, just not the shipped one.
+
+Both are products with the palette rather than overlays, because each `colors` file carries the
+window background and there is no file to swap that does not also carry the tint —
+`variants/colors/app/{palette}-{sidebar}/` and `variants/colors/shell/{palette}-{panel-tint}/`, ten
+directories each for five palettes. `TestSidebarMovesOnlyTheWindowBackground` and
+`TestPanelTintMovesOnlyTheShell` pin which sections are allowed to move;
+`TestTheTwoSchemesTakeSeparateAxes` and `TestPanelTintAndSidebarAreSeparateInstalls` pin that
+neither axis reaches the other's file.
 
 Surfaces are written as explicit values per set, not derived by a hue or chroma transform. A
 computed shift behaves badly at the lightness of `#141414`, and the near-blacks want hand-tuning.
@@ -857,8 +893,8 @@ a binding that duplicates another is noise in a help line whose whole purpose is
 A preference is shown when the current selection actually uses it — either because a selected
 component declares it, or because a selected component names it in a resolved path. The palette is
 declared once, on the Plasma style, and the colour scheme reads it through
-`variants/colors/{palette}/…` — which matters more now that the colour scheme is required and no
-longer appears on the checklist at all.
+`variants/colors/app/{palette}-{sidebar}/…` — which matters more now that the colour scheme is
+required and no longer appears on the checklist at all.
 
 The alternative was repeating every value list on every component that consumes it, which is the
 same data in three places and three places for it to drift.
