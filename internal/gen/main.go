@@ -746,7 +746,12 @@ func controls(
 				// button exactly — while the tiles keep their own widths and draw
 				// the corners. It paints only the wash, since the normal state is
 				// still drawn underneath. See docs/plasma-controls.md.
-				set(1, "hover", fullTop, layer{text, "0.08"}),
+				//
+				// It washes harder than the flat button below, because the two are
+				// not doing the same job: this one lightens a surface the button
+				// already has, where a flat button's hover is the only surface it
+				// ever gets and lands straight on whatever it sits on.
+				set(1, "hover", fullTop, layer{text, "0.15"}),
 				set(2, "pressed", fullTop, layer{btnBg, surface}, layer{btnHvr, "0.45"}),
 				set(3, "focus", fullTop),
 				set(4, "toolbutton-hover", fullTop, layer{text, "0.08"}),

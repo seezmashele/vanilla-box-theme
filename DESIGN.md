@@ -594,7 +594,7 @@ background has an opaque copy to fall back to, so the element axis has nothing t
   "foreground": { "text":"#e8e4dd", "textInactive":"#8a8782", "onHighlight":"#1f1f1f" },
 
   "surfaces": {
-    "grey":   { "background":"#292929", "elevated":"#2f2f2f", "view":"#141414", "…":"…" },
+    "grey":   { "background":"#292929", "elevated":"#3d3d3d", "view":"#141414", "…":"…" },
     "slate":  { "background":"#272a2f", "…":"…" },
     "forest": { "background":"#252b25", "…":"…" },
     "…":      "…"
@@ -817,8 +817,12 @@ inset. `TestHoverCannotGrowPastTheButton` pins the prefixed form and the absence
 
 Hover paints only the wash, not the surface under it. `RaisedButtonBackground.qml` keeps the
 `normal` frame drawn below, so a wash over it is the button's own background changing colour, which
-is all the state has to say. The value is `ColorScheme-Text` at `0.08`, the same as
-`toolbutton-hover`, so a flat button and a raised one react alike.
+is all the state has to say.
+
+It washes at `0.15` where `toolbutton-hover` washes at `0.08`, and the two are not meant to match.
+A raised button already has a surface, and its hover lightens it; a flat button has none, and its
+hover *is* the surface, landing straight on the popup or panel behind it. The same value in both
+places would either wash out the flat button or leave the raised one looking untouched.
 
 The states anchored normally — `pressed`, `focus-background`, and both `toolbutton-` states — paint
 the control's own rect and need no hint. `docs/plasma-controls.md` has the wider map of which
@@ -828,8 +832,20 @@ Plasma widget reads which prefix.
 
 `opacity.button` is `0.85`, and it is the only control fill that is not fully opaque. A button on a
 popup sits on a surface that is already `0.85`, so letting a little through keeps it reading as
-part of that surface rather than as a card laid on it — the two are only six units apart in the
-neutral palette to begin with.
+part of that surface rather than as a card laid on it.
+
+The surface it draws is `elevated`, and the two are one decision rather than two. It shipped opaque
+at six units above the window and read as no background at all; the translucency then takes about
+15% of whatever lift it has back off, since what shows through is the window itself. So the value
+is set by what survives that: `#3d3d3d` on `#292929` at `0.85` lands at `#3a3a3a`, eleven up rather
+than six. `TestTheButtonSurfaceReadsAsRaised` pins the composited lift rather than either number,
+because lowering `opacity.button` alone would walk the button back into the popup without touching
+a colour.
+
+`elevated` now passes `elevatedAlt`, which looks like a ladder out of order and is not one. The two
+are separate roles: `elevated` is a control fill, `elevatedAlt` is an edge — the window
+decoration's border and the tooltip's alternate row. Nothing composes them, and a fill that has to
+be seen at 85% has further to go than a hairline drawn at full strength.
 
 Both states that draw the surface take it: `normal` and `pressed`. A pressed button that went
 opaque would read as a different surface rather than a pressed one, which is what

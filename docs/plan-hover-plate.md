@@ -28,9 +28,9 @@ Two things meeting:
 Six-pixel margins on a solid fill means the hover plate is 12px wider and 12px taller than the
 button under it.
 
-A second, unrelated reason these buttons read as transparent at rest: `normal` paints
-`ColorScheme-ButtonBackground` `#2f2f2f` on a `#292929` popup — six units apart. That is not part of
-this fix, but it is why the plate is the first thing you see.
+A second, unrelated reason these buttons read as transparent at rest: `normal` painted
+`ColorScheme-ButtonBackground` `#2f2f2f` on a `#292929` popup — six units apart. Not part of the
+hover fix, but it is why the plate was the first thing you saw. Addressed in the revision below.
 
 ## Scope
 
@@ -92,10 +92,25 @@ what it sits on through. It needs no `opaque/` copy: Plasma falls back to those 
 backgrounds, and a control has none, so with compositing off it composites against the opaque popup
 instead.
 
+Then the colours, once the shape was right. `elevated` was six units above the window in every
+palette, which is what made a raised button read as transparent. It is now a third again past
+`elevatedAlt` — `#3d3d3d` in neutral, the same move in each tint so the hue relationships hold —
+which after the `0.85` composite lands eleven above the window instead of six. A first attempt at
+the midpoint (`#343434`) netted three, because the translucency gives most of a small lift straight
+back. That reaches applications too, since `elevated` is `[Colors:Button] BackgroundNormal` in both
+colour files, which is the point: a button should not be one colour in Dolphin and another in a
+popup.
+
+The hover wash went `0.08` → `0.15`. It no longer matches `toolbutton-hover`, deliberately: a
+raised button's hover lightens a surface it already has, a flat button's hover *is* its only
+surface and lands on the popup behind it.
+
 Tests: `TestHoverCannotGrowPastTheButton` (prefixed hint present, bare hint absent, nine tiles),
 `TestHoverCornersFollowTheElementShape` (hover corners arc when the element shape is rounded and
 not when it is square), `TestButtonSurfaceIsTranslucent` (both states paint the surface at the
-token's value). The square-corner note above is kept as the record of why the first pass was wrong.
+token's value), `TestTheButtonSurfaceReadsAsRaised` (the lift over the window survives the
+composite, in every palette). The square-corner note above is kept as the record of why the first
+pass was wrong.
 
 ## Open afterwards
 

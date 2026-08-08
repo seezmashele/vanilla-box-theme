@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -413,6 +414,48 @@ func TestHoverCornersFollowTheElementShape(t *testing.T) {
 				"normal state drawn under it", shape, arced, shape == "rounded")
 		}
 	}
+}
+
+// TestTheButtonSurfaceReadsAsRaised pins the lift a button has to keep over the
+// window it sits on, after the translucency has taken its share back off. The
+// two are one decision: the theme once shipped an opaque surface six units up
+// and it read as no background at all, and lowering opacity.button alone would
+// walk it back there without touching a colour.
+func TestTheButtonSurfaceReadsAsRaised(t *testing.T) {
+	tk := testTokens(t)
+
+	// Far enough to be seen on a near-black surface. Eyeballed rather than
+	// derived, like the surfaces themselves.
+	const clear = 10
+
+	alpha := tk.Opacity["button"]
+	if alpha <= 0 || alpha > 1 {
+		t.Fatalf("opacity.button is %v, which is not an opacity", alpha)
+	}
+
+	for name, surfaces := range tk.Surfaces {
+		background, elevated := luma(t, surfaces["background"]), luma(t, surfaces["elevated"])
+
+		// What the eye gets: the surface composited onto the window behind it.
+		if lift := alpha * float64(elevated-background); lift < clear {
+			t.Errorf("%s: the button surface lands %.1f above the window, which is not enough "+
+				"to read as raised (want %d) — raise elevated or opacity.button",
+				name, lift, clear)
+		}
+	}
+}
+
+// luma is a surface's average channel, which is enough to order near-blacks
+// that differ only in tint.
+func luma(t *testing.T, hex string) int {
+	t.Helper()
+
+	v, err := strconv.ParseUint(strings.TrimPrefix(hex, "#"), 16, 32)
+	if err != nil {
+		t.Fatalf("not a #rrggbb colour: %s", hex)
+	}
+
+	return (int(v>>16&0xff) + int(v>>8&0xff) + int(v&0xff)) / 3
 }
 
 // TestButtonSurfaceIsTranslucent pins the one control fill that lets what it
