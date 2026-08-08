@@ -63,8 +63,30 @@ in the middle, and only the border tiles are inked.
 A theme that paints `hover` as a solid nine-tile fill therefore gets a plate larger than the button
 it belongs to, by twice its margins in each direction. Nothing else reads that prefix's margins —
 `RaisedButtonBackground` takes its padding from `normal`, `pressed` and `focus` — so a `hover`
-prefix that declares no margins at all is both safe and the only way to make the plate land on the
+prefix that reports no margins at all is both safe and the only way to make the plate land on the
 button exactly.
+
+The way to report none while still painting a border is `<prefix>-hint-no-border-padding`. From
+`framesvg.cpp`:
+
+```cpp
+frame->noBorderPadding = (q->hasElement(hintNoBorderPadding)
+                          || q->hasElement(createName(u"hint-no-border-padding")));
+// …and every margin and inset query then answers:
+if (d->frame->noBorderPadding) {
+    return .0;
+}
+```
+
+Note the second `hasElement`: KSvg accepts the hint **bare as well as prefixed**, and the bare form
+applies to every prefix in the sheet. On `widgets/button` that would zero `normal`'s margins too,
+which are a raised button's own padding, so always write the prefixed name.
+
+The border still paints, because the tile's own size and the margin it implies are stored
+separately — `fixedLeftWidth` from the `left` element versus `fixedLeftMargin` from
+`hint-left-margin`. The frame is drawn with the widths; only the content inset uses the margins.
+That separation is what lets a hover state land on the button's rect and still round its corners
+the way the button does.
 
 `pressed`, `focus-background`, `toolbutton-hover` and `toolbutton-pressed` are all anchored
 normally (`anchors.fill: parent`), so they paint the control's own rect and want their full nine
@@ -81,9 +103,12 @@ every prefix's margins are its tile size, which is 6 everywhere (`fullTop` in
 Margins are a control's padding as well as a frame's border, so raising them makes the control
 bigger, not just its artwork thicker.
 
-Insets (`hint-*-inset`) are not part of this: neither Breeze's `button.svgz` nor its `viewitem.svgz`
-uses them, and there is no evidence KSvg 6.28 reads them. Do not plan around insets without
-checking first.
+Insets are a third quantity. KSvg reads `<prefix>-hint-<edge>-inset` into `insetLeftMargin` and
+friends, exposed to QML as `FrameSvgItem.inset` — Breeze uses them on the artwork that carries a
+shadow region outside the surface proper (`dialogs/background`, `widgets/background`,
+`panel-background`, `tooltip`, `scrollbar`), and on no control. They are reported, not applied: a
+consumer that wants to sit inside them has to read them. `ButtonHover` reads only `margins`, so
+insets are no lever on it.
 
 ## Reading Breeze's artwork
 

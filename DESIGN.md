@@ -621,7 +621,7 @@ background has an opaque copy to fall back to, so the element axis has nothing t
     "windows": { "plateRadius":0, "closePlate":"#e0655f", "width":28, "height":26,
                  "closeHover":"0.75", "plainHover":"0.18", "rest":"0.85", "…":"…" }
   },
-  "opacity": { "panel":0.85, "popup":0.85, "tooltip":0 }
+  "opacity": { "panel":0.85, "popup":0.85, "tooltip":0, "button":0.85 }
 }
 ```
 
@@ -778,6 +778,66 @@ Only the tooltip needs this. `widgets/button.svg` is the other file a `shadow` p
 (`ButtonShadow.qml`), and it has no unprefixed tiles at all, so its fallback finds nothing to draw.
 Every other container is a flat fill, where a doubled draw has nothing to show. A border is what
 makes the fallback visible, and the tooltip is the only container that carries one.
+
+#### The hover halo
+
+`widgets/button.svg`'s `hover` prefix is anchored the same way, and it caught the theme out.
+`ButtonHover.qml` fills the control and then pushes all four edges back out by the prefix's own
+margins:
+
+```qml
+anchors { fill: parent; leftMargin: -margins.left; topMargin: -margins.top; … }
+imagePath: "widgets/button"
+prefix: "hover"
+```
+
+So `hover` is a halo drawn *around* a raised button, not the button's surface. Breeze says so in
+its artwork: `hover-center` there carries `opacity:0.001` and only the border tiles are inked. This
+theme painted all nine tiles solid, and with no `hint-*-margin` elements anywhere the margins fell
+back to the 6px tile size — so hovering a button produced a filled plate 12px wider and 12px taller
+than the button under it. On the lock screen's login button, and on any raised button in a popup,
+that read as a container appearing out of nowhere rather than as the button reacting.
+
+The answer is `hover-hint-no-border-padding`. KSvg returns zero from a margin query on a prefix
+carrying that element, so there is nothing for `ButtonHover` to push out by and the frame lands on
+the button exactly. It is the *margins* that go, not the border: `framesvg.cpp` keeps
+`fixedLeftWidth` — the tile's own width, which is what the frame is painted with — separately from
+`fixedLeftMargin`, which is only ever a content inset. The nine tiles still draw, so the corners
+follow the button's.
+
+Dropping the border tiles instead also stops the overhang, and was the first fix here, but it
+squares the corners: with no border there is only the centre, and a centre tile is stretched to the
+control's size, so a radius baked into it arrives as an ellipse. A square wash over a rounded
+`normal` frame reads as the button changing shape under the pointer.
+
+The hint has to carry the prefix. KSvg looks for it bare as well, and an unprefixed
+`hint-no-border-padding` would zero the margins of every state in the sheet — including `normal`'s,
+which are a raised button's own padding, so every button in the desktop would lose its content
+inset. `TestHoverCannotGrowPastTheButton` pins the prefixed form and the absence of the bare one.
+
+Hover paints only the wash, not the surface under it. `RaisedButtonBackground.qml` keeps the
+`normal` frame drawn below, so a wash over it is the button's own background changing colour, which
+is all the state has to say. The value is `ColorScheme-Text` at `0.08`, the same as
+`toolbutton-hover`, so a flat button and a raised one react alike.
+
+The states anchored normally — `pressed`, `focus-background`, and both `toolbutton-` states — paint
+the control's own rect and need no hint. `docs/plasma-controls.md` has the wider map of which
+Plasma widget reads which prefix.
+
+#### The button's surface is translucent
+
+`opacity.button` is `0.85`, and it is the only control fill that is not fully opaque. A button on a
+popup sits on a surface that is already `0.85`, so letting a little through keeps it reading as
+part of that surface rather than as a card laid on it — the two are only six units apart in the
+neutral palette to begin with.
+
+Both states that draw the surface take it: `normal` and `pressed`. A pressed button that went
+opaque would read as a different surface rather than a pressed one, which is what
+`TestButtonSurfaceIsTranslucent` guards.
+
+Unlike the containers, this needs no `opaque/` copy. Plasma falls back to those prefixes only for
+backgrounds, and a control has none — so with compositing off the button simply composites against
+the opaque popup behind it and nothing shows through that should not.
 
 Generated assets are committed. The README promises `assets/` ships beside the binary, the tests
 install the real shipped artwork rather than a fixture, and a contributor should be able to run the

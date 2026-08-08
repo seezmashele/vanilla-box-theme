@@ -466,7 +466,7 @@ func elements(tk *tokens, name, shape string) (map[string]string, error) {
 	}
 
 	out := map[string]string{}
-	for path, c := range controls(palette, accent, tk.Status, radii["button"]) {
+	for path, c := range controls(palette, accent, tk.Status, radii["button"], tk.Opacity["button"]) {
 		out["widgets/"+path] = c.render()
 	}
 
@@ -702,7 +702,15 @@ func build(tk *tokens, name, containerShape, elementShape, decoShape, buttons st
 
 // controls builds the widget artwork that shares the stacked nine-tile idiom:
 // buttons, text fields and list items.
-func controls(palette map[string]string, accent string, status map[string]string, radius float64) map[string]control {
+func controls(
+	palette map[string]string, accent string, status map[string]string,
+	radius, buttonOpacity float64,
+) map[string]control {
+	// The button's surface is the one control fill that is not fully opaque, so
+	// what it sits on shows through it a little. Written per layer rather than
+	// on the tile, because the wash stacked over it keeps its own value.
+	surface := n(buttonOpacity)
+
 	sheet := fmt.Sprintf(
 		".ColorScheme-Text { color:%s; }.ColorScheme-Highlight { color:%s; }"+
 			".ColorScheme-ButtonBackground { color:%s; }.ColorScheme-ButtonHover { color:%s; }",
@@ -726,14 +734,26 @@ func controls(palette map[string]string, accent string, status map[string]string
 		"button.svg": {
 			Height: 7 * controlStep, Style: sheet,
 			Sets: []tileSet{
-				set(0, "normal", fullTop, layer{btnBg, "1.0"}),
-				set(1, "hover", fullTop, layer{btnBg, "1.0"}, layer{btnHvr, "0.25"}),
-				set(2, "pressed", fullTop, layer{btnBg, "1.0"}, layer{btnHvr, "0.45"}),
+				set(0, "normal", fullTop, layer{btnBg, surface}),
+				// Hover is the one state Plasma draws outside the control it
+				// belongs to: ButtonHover.qml fills the button and then pushes
+				// all four edges back out by this prefix's own margins, so the
+				// prefix is a halo rather than a surface. Breeze paints its
+				// hover-center at opacity 0.001 and inks only the border.
+				//
+				// hint-no-border-padding below makes the margins report zero, so
+				// there is nothing to push out by and the frame lands on the
+				// button exactly — while the tiles keep their own widths and draw
+				// the corners. It paints only the wash, since the normal state is
+				// still drawn underneath. See docs/plasma-controls.md.
+				set(1, "hover", fullTop, layer{text, "0.08"}),
+				set(2, "pressed", fullTop, layer{btnBg, surface}, layer{btnHvr, "0.45"}),
 				set(3, "focus", fullTop),
 				set(4, "toolbutton-hover", fullTop, layer{text, "0.08"}),
 				set(5, "toolbutton-pressed", fullTop, layer{text, "0.15"}),
 				set(6, "toolbutton-focus", fullTop),
 			},
+			Hints: []string{"hover-hint-no-border-padding"},
 		},
 		"lineedit.svg": {
 			Height: 3 * controlStep, Style: sheet,

@@ -1,7 +1,10 @@
 # Plan: stop the hover plate growing past the button
 
-Status: agreed diagnosis, not yet implemented. Background for the terms used here is in
-[plasma-controls.md](plasma-controls.md).
+Status: **done**, in two passes. The first dropped the hover state's border tiles, which stopped the
+overhang but squared its corners. The second — what ships — keeps all nine tiles and adds
+`hover-hint-no-border-padding`, so the margins report zero while the tiles still paint: the wash
+lands on the button's rect *and* rounds like it. See "Revision" at the end. Background for the
+terms used here is in [plasma-controls.md](plasma-controls.md).
 
 ## The complaint
 
@@ -70,6 +73,29 @@ invisible, which is the reason for the subtle wash over the current `0.25`.
 
 The alternative — keeping the plate rounded by leaving a small halo — was rejected: a smaller
 container is still a container, and the ask was for none.
+
+## Revision: rounded corners, and a translucent surface
+
+The trade-off above was accepted too early. Dropping the border tiles is not the only way to make a
+prefix report no margins — `<prefix>-hint-no-border-padding` does it while the tiles stay, and
+`framesvg.cpp` stores a tile's own width (`fixedLeftWidth`) separately from the margin it would
+otherwise imply (`fixedLeftMargin`), so the frame is still painted with its borders. The hover
+state therefore keeps its nine tiles at the element radius and gains the hint. It lands on the
+button's rect and rounds like it.
+
+The hint must carry the prefix: KSvg honours a bare `hint-no-border-padding` too, and that one
+would zero `normal`'s margins as well — a raised button's own padding.
+
+Separately, `opacity.button` was added to `spec/tokens.json` at `0.85`, applied to the
+`ColorScheme-ButtonBackground` layer in both `normal` and `pressed`, so the button lets a little of
+what it sits on through. It needs no `opaque/` copy: Plasma falls back to those prefixes only for
+backgrounds, and a control has none, so with compositing off it composites against the opaque popup
+instead.
+
+Tests: `TestHoverCannotGrowPastTheButton` (prefixed hint present, bare hint absent, nine tiles),
+`TestHoverCornersFollowTheElementShape` (hover corners arc when the element shape is rounded and
+not when it is square), `TestButtonSurfaceIsTranslucent` (both states paint the surface at the
+token's value). The square-corner note above is kept as the record of why the first pass was wrong.
 
 ## Open afterwards
 

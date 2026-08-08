@@ -346,6 +346,116 @@ func TestTooltipSitsOffThePopupBackground(t *testing.T) {
 	}
 }
 
+// TestHoverCannotGrowPastTheButton pins the one control state Plasma draws
+// outside the control it belongs to. ButtonHover.qml fills the button and then
+// pushes all four edges back out by the hover prefix's own margins, so every
+// margin that prefix reports becomes overhang — the theme once shipped a plate
+// 12px wider and taller than the button under it.
+//
+// hint-no-border-padding is what answers it: KSvg returns zero for a margin
+// query on a prefix carrying it, while the border tiles keep their own widths
+// and still paint. That is the only combination that puts the wash on the
+// button's rect and still lets its corners follow the button's.
+func TestHoverCannotGrowPastTheButton(t *testing.T) {
+	tk := testTokens(t)
+
+	files, err := elements(tk, defaultPalette, defaultElements)
+	if err != nil {
+		t.Fatalf("elements: %v", err)
+	}
+	button := files["widgets/button.svg"]
+
+	if !strings.Contains(button, `id="hover-hint-no-border-padding"`) {
+		t.Error("the hover state does not disclaim its border padding, so Plasma will draw it " +
+			"past the button by the margins its tiles imply")
+	}
+
+	// KSvg honours the hint unprefixed as well, where it would zero the margins
+	// of every prefix in the sheet — including normal's, which are a raised
+	// button's own padding.
+	if strings.Contains(button, `id="hint-no-border-padding"`) {
+		t.Error("hint-no-border-padding is unprefixed, so it reaches every state in the sheet")
+	}
+
+	borders := []string{
+		"topleft", "top", "topright", "left", "right", "bottomleft", "bottom", "bottomright",
+	}
+
+	for _, prefix := range []string{"hover", "normal", "pressed", "toolbutton-hover"} {
+		for _, tile := range borders {
+			if id := `id="` + prefix + "-" + tile + `"`; !strings.Contains(button, id) {
+				t.Errorf("%s is missing %s, so it has no corner to follow the button's with",
+					prefix, id)
+			}
+		}
+	}
+}
+
+// TestHoverCornersFollowTheElementShape is the complaint that outlived the
+// first fix: a hover that lands on the button but squares off its corners
+// reads as the button changing shape under the pointer.
+func TestHoverCornersFollowTheElementShape(t *testing.T) {
+	tk := testTokens(t)
+
+	for _, shape := range []string{"rounded", "square"} {
+		files, err := elements(tk, defaultPalette, shape)
+		if err != nil {
+			t.Fatalf("elements: %v", err)
+		}
+
+		corner, ok := cut(files["widgets/button.svg"], `<g id="hover-topleft">`, "</g>")
+		if !ok {
+			t.Fatalf("%s: the hover state has no top-left corner", shape)
+		}
+
+		if arced := strings.Contains(corner, " A"); arced != (shape == "rounded") {
+			t.Errorf("%s elements: hover corner arced = %v, want %v — it has to match the "+
+				"normal state drawn under it", shape, arced, shape == "rounded")
+		}
+	}
+}
+
+// TestButtonSurfaceIsTranslucent pins the one control fill that lets what it
+// sits on show through, in both the states that draw it. A pressed button that
+// went opaque would read as a different surface rather than a pressed one.
+func TestButtonSurfaceIsTranslucent(t *testing.T) {
+	tk := testTokens(t)
+
+	want := n(tk.Opacity["button"])
+	if want == "1" || want == "" {
+		t.Fatalf("opacity.button is %q, which is not translucent at all", want)
+	}
+
+	files, err := elements(tk, defaultPalette, defaultElements)
+	if err != nil {
+		t.Fatalf("elements: %v", err)
+	}
+
+	for _, prefix := range []string{"normal", "pressed"} {
+		centre, ok := cut(files["widgets/button.svg"], `<g id="`+prefix+`-center">`, "</g>")
+		if !ok {
+			t.Fatalf("%s has no centre tile", prefix)
+		}
+
+		surface := `class="ColorScheme-ButtonBackground" style="fill:currentColor" opacity="` + want + `"`
+		if !strings.Contains(centre, surface) {
+			t.Errorf("%s does not paint its surface at opacity %s: %s", prefix, want, centre)
+		}
+	}
+}
+
+// cut returns what lies between the first open and the next close after it.
+func cut(s, open, close string) (string, bool) {
+	_, rest, ok := strings.Cut(s, open)
+	if !ok {
+		return "", false
+	}
+
+	inner, _, ok := strings.Cut(rest, close)
+
+	return inner, ok
+}
+
 // assertWindowBackgroundMove checks one scheme rendered at both ends of an axis
 // that moves the window background. Both axes move the same role in the same
 // way, so they are worth holding to one table: what varies between them is only
