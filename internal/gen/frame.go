@@ -33,11 +33,18 @@ type frame struct {
 
 	// Border is the opacity of a one-pixel outline drawn in the colour scheme's
 	// text colour, written literally as the artwork writes its opacities, or
-	// empty for a frame with no outline. The outline is painted first and the
-	// background laid over it inset by a pixel, so the two antialiased curves
-	// stay concentric — the same idiom the window decoration uses. A literal
-	// colour would bake one palette's border into artwork every palette shares,
-	// so the outline goes through the stylesheet like everything else here.
+	// empty for a frame with no outline. A literal colour would bake one
+	// palette's border into artwork every palette shares, so the outline goes
+	// through the stylesheet like everything else here.
+	//
+	// The background covers the tile's whole shape and the outline is laid over
+	// it as a ring, so the two antialiased curves stay concentric and the border
+	// pixel is the surface tinted by the outline. The window decoration stacks
+	// these the other way round — outline first, background inset over it — and
+	// it can, because its border is an opaque literal. An outline that is a
+	// tenth of anything needs the surface underneath it to be a tenth of; with
+	// nothing under it the frame's outermost pixel is ninety percent
+	// transparent, which is a gap rather than an edge.
 	Border         string
 	BorderFallback string // stylesheet colour for the outline
 
@@ -159,20 +166,24 @@ func (f frame) tiles(paint, border string) []string {
 	}
 
 	// An outlined tile is two shapes under the one id Plasma looks up: the
-	// outline covering the whole tile, and the background over it, pulled a
-	// pixel off the frame's outer edge and left flush with the tile boundaries
-	// it shares with its neighbours.
+	// background covering the whole tile, and the outline over it, a ring a
+	// pixel wide against the frame's outer edge and nothing at all along the
+	// tile boundaries it shares with its neighbours.
 	itl, itr, ibl, ibr := f.corners(1)
 	edge := fmt.Sprintf(`class="ColorScheme-Text" style="fill:currentColor" opacity="%s"`, border)
 
-	corner := func(id, outline, fill string) string {
-		return fmt.Sprintf(`<g id="%s"><path d="%s" %s/><path d="%s" %s/></g>`,
-			id, outline, edge, fill, paint)
+	// A corner's ring is its two paths in one, wound so the even-odd rule drops
+	// the inner shape out of the outer one. They already meet flush along the
+	// shared tile boundaries, where the two coincident edges cancel and leave
+	// the ring open — the same three sides the strips leave bare.
+	corner := func(id, outer, inset string) string {
+		return fmt.Sprintf(`<g id="%s"><path d="%s" %s/><path d="%s %s" fill-rule="evenodd" %s/></g>`,
+			id, outer, paint, outer, inset, edge)
 	}
-	strip := func(id string, ox, oy, ow, oh, x, y, w, h int) string {
+	strip := func(id string, x, y, w, h, bx, by, bw, bh int) string {
 		return fmt.Sprintf(
 			`<g id="%s"><rect x="%d" y="%d" width="%d" height="%d" %s/><rect x="%d" y="%d" width="%d" height="%d" %s/></g>`,
-			id, ox, oy, ow, oh, edge, x, y, w, h, paint)
+			id, x, y, w, h, paint, bx, by, bw, bh, edge)
 	}
 
 	return []string{
@@ -180,10 +191,10 @@ func (f frame) tiles(paint, border string) []string {
 		corner("topright", tr, itr),
 		corner("bottomleft", bl, ibl),
 		corner("bottomright", br, ibr),
-		strip("top", t, 0, inner, 1, t, 1, inner, t-1),
-		strip("bottom", t, s-1, inner, 1, t, s-t, inner, t-1),
-		strip("left", 0, t, 1, inner, 1, t, t-1, inner),
-		strip("right", s-1, t, 1, inner, s-t, t, t-1, inner),
+		strip("top", t, 0, inner, t, t, 0, inner, 1),
+		strip("bottom", t, s-t, inner, t, t, s-1, inner, 1),
+		strip("left", 0, t, t, inner, 0, t, 1, inner),
+		strip("right", s-t, t, t, inner, s-1, t, 1, inner),
 		rect("center", t, t, inner, inner),
 	}
 }

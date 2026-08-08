@@ -275,6 +275,76 @@ func pagedTheme(t *testing.T) *theme.Theme {
 	return th
 }
 
+// TestCursorStartsOnTheSelection is what lets a choice list its values in
+// whatever order reads best. The cursor rests on the answer rather than on the
+// first line, so accepting a page installs what it was already showing —
+// Button & input corners offers Square first and still installs Rounded, and
+// before this the cursor would have sat on Square with one enter away from
+// silently changing it.
+func TestCursorStartsOnTheSelection(t *testing.T) {
+	th := testTheme(t)
+
+	// Default to the last value, so resting on the selection and resting on the
+	// first selectable row cannot coincide.
+	tint := &th.Components[1].Options[1]
+	tint.DefaultValue = "rose"
+
+	m := New(th)
+
+	rows := m.optionRows()
+	if m.optionCursor >= len(rows) {
+		t.Fatalf("cursor %d past the end of %d rows", m.optionCursor, len(rows))
+	}
+
+	row := rows[m.optionCursor]
+	if row.option.ID != tint.ID || row.value.ID != "rose" {
+		t.Errorf("cursor starts on %s/%s, want the selected %s/rose",
+			row.option.ID, row.value.ID, tint.ID)
+	}
+
+	// Accepting the page without moving has to leave the choice where it was.
+	m.chooseAtCursor()
+
+	if got := m.choices.Values[tint.ID]; got != "rose" {
+		t.Errorf("accepting the page changed the choice to %q, want rose", got)
+	}
+}
+
+// TestOrderArrangesAPageAcrossComponents covers the one thing a group cannot say
+// on its own. Shape is asked partly by the Plasma style and partly by the
+// decoration, so the manifest's own sequence puts the containers first however
+// the page should read; order overrides that without moving the components, and
+// options that state none keep the sequence they were declared in.
+func TestOrderArrangesAPageAcrossComponents(t *testing.T) {
+	th := testTheme(t)
+	// One group holding both preferences, so the page is the whole set.
+	th.Components[1].Options[0].Group = "Shape"
+	th.Components[1].Options[1].Group = "Shape"
+
+	transparency := th.Components[1].Options[0].ID
+	tint := th.Components[1].Options[1].ID
+
+	// Left alone the page reads in the order the options become visible, which
+	// is not the order they are declared in: the colour scheme reads the tint
+	// through a resolved path, so the tint is reached first.
+	got := New(th).pageOptions()
+	if len(got) != 2 {
+		t.Fatalf("pageOptions = %d options, want 2", len(got))
+	}
+	if got[0].ID != tint {
+		t.Fatalf("with no order the page reads %s first, want %s", got[0].ID, tint)
+	}
+
+	// Asking for the reverse has to actually reverse it — an order that merely
+	// agreed with the natural sequence would prove nothing.
+	th.Components[1].Options[0].Order = 1 // transparency
+	th.Components[1].Options[1].Order = 2 // tint
+
+	if got := New(th).pageOptions(); got[0].ID != transparency {
+		t.Errorf("page reads %s first, want the lower order %s", got[0].ID, transparency)
+	}
+}
+
 // TestPagesFollowTheirGroups covers the split: a page per group, in the order
 // the groups first appear, with enter and esc walking between them.
 func TestPagesFollowTheirGroups(t *testing.T) {

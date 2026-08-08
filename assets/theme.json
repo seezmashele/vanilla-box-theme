@@ -68,17 +68,17 @@
           "description": "Places panels in Dolphin, Kate and other KDE apps",
           "group": "Surface colour",
           "kind": "select",
-          "defaultValue": "window",
+          "defaultValue": "view",
           "values": [
-            {
-              "id": "window",
-              "name": "Match the window",
-              "description": "a lighter strip beside the file list, as KDE ships it"
-            },
             {
               "id": "view",
               "name": "Match the file list",
               "description": "sidebar and list merge into one dark field"
+            },
+            {
+              "id": "window",
+              "name": "Match the window",
+              "description": "a lighter strip beside the file list, as KDE ships it"
             }
           ]
         },
@@ -87,21 +87,22 @@
           "name": "Panel & popup corners",
           "description": "The panel strip, menus, tooltips and applet backgrounds",
           "group": "Shape",
+          "order": 3,
           "kind": "select",
-          "defaultValue": "rounded",
+          "defaultValue": "square",
           "values": [
-            {
-              "id": "rounded",
-              "name": "Rounded",
-              "overlay": {
-                "from": "variants/containers/rounded"
-              }
-            },
             {
               "id": "square",
               "name": "Square",
               "overlay": {
                 "from": "variants/containers/square"
+              }
+            },
+            {
+              "id": "rounded",
+              "name": "Rounded",
+              "overlay": {
+                "from": "variants/containers/rounded"
               }
             }
           ]
@@ -111,21 +112,22 @@
           "name": "Button & input corners",
           "description": "Buttons, search bars and list items inside them",
           "group": "Shape",
+          "order": 4,
           "kind": "select",
           "defaultValue": "rounded",
           "values": [
-            {
-              "id": "rounded",
-              "name": "Rounded",
-              "overlay": {
-                "from": "variants/elements/rounded"
-              }
-            },
             {
               "id": "square",
               "name": "Square",
               "overlay": {
                 "from": "variants/elements/square"
+              }
+            },
+            {
+              "id": "rounded",
+              "name": "Rounded",
+              "overlay": {
+                "from": "variants/elements/rounded"
               }
             }
           ]
@@ -193,16 +195,17 @@
           "name": "Titlebar corners",
           "description": "Top corners of the window frame",
           "group": "Shape",
+          "order": 1,
           "kind": "select",
-          "defaultValue": "rounded",
+          "defaultValue": "square",
           "values": [
-            {
-              "id": "rounded",
-              "name": "Rounded"
-            },
             {
               "id": "square",
               "name": "Square"
+            },
+            {
+              "id": "rounded",
+              "name": "Rounded"
             }
           ]
         },
@@ -211,23 +214,24 @@
           "name": "Window buttons",
           "description": "Close, minimise and maximise",
           "group": "Shape",
+          "order": 2,
           "kind": "select",
-          "defaultValue": "mac",
+          "defaultValue": "windows",
           "values": [
-            {
-              "id": "mac",
-              "name": "Traffic lights",
-              "description": "(similar to Mac)",
-              "overlay": {
-                "from": "variants/buttons/mac"
-              }
-            },
             {
               "id": "windows",
               "name": "Symbols",
               "description": "(similar to Windows)",
               "overlay": {
                 "from": "variants/buttons/windows"
+              }
+            },
+            {
+              "id": "mac",
+              "name": "Traffic lights",
+              "description": "(similar to Mac)",
+              "overlay": {
+                "from": "variants/buttons/mac"
               }
             }
           ]

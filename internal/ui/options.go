@@ -1,6 +1,10 @@
 package ui
 
-import "vanillabox/internal/theme"
+import (
+	"sort"
+
+	"vanillabox/internal/theme"
+)
 
 // rowKind is what one line of the preferences screen is.
 type rowKind int
@@ -49,7 +53,9 @@ func (m Model) pages() []string {
 
 // pageOptions are the preferences asked on the current page. An option's group
 // need not be contiguous in the manifest — the palette and the titlebar belong
-// to different components — so this gathers by name rather than by run.
+// to different components — so this gathers by name rather than by run, then
+// sorts by the order the manifest asked for. The sort is stable, so options
+// that state no order keep the sequence they were declared in.
 func (m Model) pageOptions() []theme.Option {
 	names := m.pages()
 	if m.page >= len(names) {
@@ -62,6 +68,8 @@ func (m Model) pageOptions() []theme.Option {
 			out = append(out, o)
 		}
 	}
+
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Order < out[j].Order })
 
 	return out
 }
@@ -97,10 +105,28 @@ func (m Model) optionRows() []optionRow {
 	return rows
 }
 
-// firstOptionRow is where the cursor starts: the first line that can be acted
-// on, skipping the header the list opens with.
+// firstOptionRow is where the cursor starts: the row already holding the answer,
+// so what the cursor rests on is what the page installs if it is simply
+// accepted. Starting on the first selectable line instead tied that to the order
+// the values happen to be listed in — every choice had to list its default first
+// or a stray enter would silently change an answer the user had not looked at.
+// Resting on the selection makes the listing order presentational, which is what
+// lets Button & input corners offer Square first and still install Rounded.
 func (m Model) firstOptionRow() int {
-	for i, r := range m.optionRows() {
+	rows := m.optionRows()
+
+	for i, r := range rows {
+		if !r.selectable() {
+			continue
+		}
+		// A toggle is a single row and is its own answer.
+		if r.kind == rowToggle || m.choices.Values[r.option.ID] == r.value.ID {
+			return i
+		}
+	}
+
+	// Nothing on the page is answered yet, so there is no selection to rest on.
+	for i, r := range rows {
 		if r.selectable() {
 			return i
 		}

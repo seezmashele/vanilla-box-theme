@@ -121,14 +121,19 @@ const (
 	defaultContainers = "square"
 	defaultElements   = "rounded"
 	defaultTitlebar   = "square"
-	defaultButtons    = "mac"
+	defaultButtons    = "windows"
 
 	// The two points on the sidebar axis. A places panel paints with the window
 	// background, so "view" is the one that moves that background onto the view
 	// colour and "window" is leaving it where it is.
+	//
+	// "view" is the default: the merged sidebar and file list is the look the
+	// theme is going for, and it is worth the whole window background moving
+	// with it. "window" is here for anyone who would rather KDE's own
+	// arrangement stayed put.
 	sidebarWindow  = "window"
 	sidebarView    = "view"
-	defaultSidebar = sidebarWindow
+	defaultSidebar = sidebarView
 
 	// The titlebar row is the rc's TitleHeight plus the frame's own top border.
 	titleHeight = 30

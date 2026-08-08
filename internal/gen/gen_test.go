@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,28 +133,82 @@ func TestShadowPrefixIsPresentAndEmpty(t *testing.T) {
 }
 
 // TestOutlineIsConcentricWithTheSurface covers how the border is built: the
-// outline is the whole tile and the background is the same shape a pixel in, so
-// the two curves stay parallel. Drawing the inner path at the outer radius
-// would leave the border thicker at the corners than along the edges.
+// surface is the whole tile and the outline is a ring between that shape and
+// the same shape a pixel in, so the two curves stay parallel. Drawing the inner
+// path at the outer radius would leave the border thicker at the corners than
+// along the edges.
 func TestOutlineIsConcentricWithTheSurface(t *testing.T) {
 	svg := outlined().render()
 	tile := element(svg, "topleft")
 
 	// Radius 8 at the outer edge, 7 a pixel in — and cornerFactor puts the
 	// inner control point at 1+7*0.4478.
-	outer := `d="M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z"`
-	inner := `d="M1,10 L1,8 C1,4.135 4.135,1 8,1 L10,1 L10,10 Z"`
+	outer := `M0,10 L0,8 C0,3.582 3.582,0 8,0 L10,0 L10,10 Z`
+	inner := `M1,10 L1,8 C1,4.135 4.135,1 8,1 L10,1 L10,10 Z`
 
-	if !strings.Contains(tile, outer) {
-		t.Errorf("outline should cover the whole corner, want %s in:\n%s", outer, tile)
+	if !strings.Contains(tile, fmt.Sprintf(`d="%s" class="ColorScheme-Background"`, outer)) {
+		t.Errorf("surface should cover the whole corner, want %s in:\n%s", outer, tile)
 	}
-	if !strings.Contains(tile, inner) {
-		t.Errorf("surface should sit a pixel inside it, want %s in:\n%s", inner, tile)
+	// Both subpaths in one d, so even-odd drops the inner shape out and leaves a
+	// ring. Two separate paths would paint the inner shape rather than cut it.
+	if !strings.Contains(tile, fmt.Sprintf(`d="%s %s" fill-rule="evenodd"`, outer, inner)) {
+		t.Errorf("outline should be a ring a pixel inside it, want %s in:\n%s", inner, tile)
 	}
 	// The outline goes through the stylesheet so it follows the tint rather than
 	// baking one palette's border into artwork every palette shares.
 	if !strings.Contains(svg, `.ColorScheme-Text { color:#e8e4dd; }`) {
 		t.Errorf("the outline's class should be declared in the stylesheet:\n%s", svg)
+	}
+}
+
+// TestOutlineIsPaintedOverTheSurface is the bug the concentricity test could not
+// see. The outline is a tenth of the text colour, so it is only a border while
+// it has the surface underneath it to be a tenth of. Painted first, with the
+// background inset over it, the frame's outermost pixel is ninety percent
+// transparent and the border reads as a gap onto whatever is behind the tooltip.
+//
+// The window decoration does stack them the other way round, and that is where
+// this went wrong: its border is an opaque literal, so the order does not matter
+// to it.
+func TestOutlineIsPaintedOverTheSurface(t *testing.T) {
+	svg := outlined().render()
+
+	// The corners carry the ring and the edges a plain strip, so check one of
+	// each: in both the surface has to be the first shape in the group.
+	for _, id := range []string{"topleft", "topright", "bottomleft", "bottomright", "top", "bottom", "left", "right"} {
+		tile := element(svg, id)
+		surface := strings.Index(tile, "ColorScheme-Background")
+		outline := strings.Index(tile, "ColorScheme-Text")
+
+		switch {
+		case surface < 0:
+			t.Errorf("%s paints no surface under its outline:\n%s", id, tile)
+		case outline < 0:
+			t.Errorf("%s carries no outline:\n%s", id, tile)
+		case outline < surface:
+			t.Errorf("%s paints its outline under the surface, so the border is transparent:\n%s", id, tile)
+		}
+	}
+}
+
+// TestOutlineLeavesTheTileSeamsBare keeps the border to the frame's outer edge.
+// Every tile is drawn against its neighbours, so an outline on a shared boundary
+// would draw a line across the middle of the tooltip.
+func TestOutlineLeavesTheTileSeamsBare(t *testing.T) {
+	svg := outlined().render()
+
+	// The centre is interior on all four sides and never carries an outline.
+	if tile := element(svg, "center"); strings.Contains(tile, "ColorScheme-Text") {
+		t.Errorf("the centre carries an outline:\n%s", tile)
+	}
+	// A strip's outline is one pixel on the frame's edge, not the whole tile:
+	// top spans the full 10px tile and its border only the first row.
+	tile := element(svg, "top")
+	if !strings.Contains(tile, `<rect x="10" y="0" width="24" height="10" class="ColorScheme-Background"`) {
+		t.Errorf("top's surface should cover the whole tile:\n%s", tile)
+	}
+	if !strings.Contains(tile, `<rect x="10" y="0" width="24" height="1" class="ColorScheme-Text"`) {
+		t.Errorf("top's outline should be one pixel on the frame's edge:\n%s", tile)
 	}
 }
 
@@ -469,5 +524,70 @@ func TestSwatchesMatchTheSurfaces(t *testing.T) {
 
 	if seen != len(tk.Palettes) {
 		t.Errorf("the manifest offers %d palettes, spec/tokens.json defines %d", seen, len(tk.Palettes))
+	}
+}
+
+// TestManifestDefaultsMatchTheShippedArtwork ties the option the installer
+// preselects to the variant the generator bakes into the shipped tree. They are
+// two separate statements of the same intent and they drifted once already: the
+// style shipped square containers while theme.json preselected "rounded", so a
+// default install laid the rounded overlay over a square base and the constant
+// here described a default nobody received.
+//
+// Where a value carries no overlay the drift is not even redundant work. The
+// titlebar is resolved from {palette}-{titlebar}, so its defaultValue is the
+// only thing that decides what a fresh install renders.
+func TestManifestDefaultsMatchTheShippedArtwork(t *testing.T) {
+	const root = "../.."
+
+	data, err := os.ReadFile(filepath.Join(root, "assets", "theme.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var manifest struct {
+		Components []struct {
+			Options []struct {
+				ID           string `json:"id"`
+				DefaultValue string `json:"defaultValue"`
+			} `json:"options"`
+		} `json:"components"`
+	}
+
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]string{
+		"palette":    defaultPalette,
+		"sidebar":    defaultSidebar,
+		"containers": defaultContainers,
+		"elements":   defaultElements,
+		"titlebar":   defaultTitlebar,
+		"buttons":    defaultButtons,
+	}
+
+	seen := map[string]bool{}
+
+	for _, c := range manifest.Components {
+		for _, o := range c.Options {
+			w, ok := want[o.ID]
+			if !ok {
+				continue
+			}
+
+			seen[o.ID] = true
+
+			if o.DefaultValue != w {
+				t.Errorf("theme.json preselects %q for %s but the generator ships %q — "+
+					"edit assets/theme.json and internal/gen/main.go together", o.DefaultValue, o.ID, w)
+			}
+		}
+	}
+
+	for id := range want {
+		if !seen[id] {
+			t.Errorf("theme.json declares no %s option", id)
+		}
 	}
 }

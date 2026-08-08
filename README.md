@@ -124,33 +124,39 @@ possible 441, because a tinted dark surface is a dark surface first — that clo
 rather than a rendering problem, and it is why the boxes are two cells wide and come in pairs.
 
 Which page a preference appears on is `"group"` in `theme.json`, not something the UI decides, so
-adding an option means saying where it belongs rather than editing a screen.
+adding an option means saying where it belongs rather than editing a screen. `"order"` arranges a
+page: a group is gathered across components — Shape is asked partly by the Plasma style and partly
+by the decoration — so without it the only way to move one preference is to reorder the components
+and every other page with them.
 
 | Preference | Values | Changes |
 | --- | --- | --- |
 | Surfaces | Neutral, Slate, Plum, Rose, Forest | the tint of every surface — and, quietly, the accent that goes with it |
-| Sidebar background | Match the window, Match the file list | places panels in Dolphin, Kate and friends — and every other window background |
-| Panel & popup corners | Rounded, Square | the panel strip, menus, tooltips, applet backgrounds |
-| Button & input corners | Rounded, Square | buttons, search bars, list items |
-| Titlebar corners | Rounded, Square | the top corners of the window frame |
-| Window buttons | Traffic lights, Symbols | close, minimise and maximise |
+| Sidebar background | Match the file list, Match the window | places panels in Dolphin, Kate and friends — and every other window background |
+| Titlebar corners | Square, Rounded | the top corners of the window frame |
+| Window buttons | Symbols, Traffic lights | close, minimise and maximise |
+| Panel & popup corners | Square, Rounded | the panel strip, menus, tooltips, applet backgrounds |
+| Button & input corners | Square, Rounded | buttons, search bars, list items |
 | Translucent panel | on/off | `widgets/panel-background.svg` |
 | Translucent popups & menus | on/off | `dialogs/background.svg` |
 | Translucent applets | on/off | `widgets/background.svg` |
 
 A choice's default is `"defaultValue"` in `theme.json` rather than whichever value happens to be
-listed first. On the corner preferences the two agree: all three list Rounded first and install it,
-so the cursor starts on the shipped answer. Accepting each prompt gives Neutral, rounded corners
-throughout, traffic-light window buttons, and your own icons left alone.
+listed first, and the two are free to disagree: the cursor opens on the value already selected, not
+on the first line, so a choice can list its values in whatever order reads best. Button & input
+corners offers Square first and still installs Rounded. Accepting every prompt gives Neutral, a
+sidebar merged into the file list, square titlebars, panels and popups with rounded buttons and
+inputs inside them, symbol window buttons, and your own icons left alone.
 
-**Sidebar background** is blunter than its name suggests, and worth understanding before you switch
-it. KDE colour schemes have no sidebar role: a places panel paints with the *window* background,
-which is why it matches the toolbar rather than the file list next to it. Making it match the list
-means moving the window background itself, so every window background moves — dialogs, settings
-pages, message boxes. Toolbars and headers stay put, because they read from a separate role, so a
-merged panel and list still sit under a strip that reads as chrome. If you want the Dolphin look
-and do not mind a darker desktop generally, take it; otherwise the default leaves KDE's own
-arrangement alone.
+**Sidebar background** is blunter than its name suggests, and it is the one default worth reading
+before accepting. KDE colour schemes have no sidebar role: a places panel paints with the *window*
+background, which is why it matches the toolbar rather than the file list next to it. Making it
+match the list means moving the window background itself, so every window background moves —
+dialogs, settings pages, message boxes. Toolbars and headers stay put, because they read from a
+separate role, so a merged panel and list still sit under a strip that reads as chrome.
+
+The merged look is what the theme is going for, so it ships as the default and the darker desktop
+comes with it. Choose **Match the window** if you would rather KDE's own arrangement stayed put.
 
 A colour is a surface tint and an accent chosen together, not two separate questions. Accents match
 their surfaces in temperature, so each variant reads as one decision. Neutral is the quietest of
@@ -175,12 +181,16 @@ both variants, and cannot be anything else: rounding them needs a bottom border 
 in, and anything narrower than the radius lets the client window's square corner show through.
 Breeze gets around it by calling `KDecoration3::Decoration::setBorderRadius` so KWin clips the
 client, and no Aurorae plugin exposes that API — see the comment in `decoration.svg`. Rounded top,
-square bottom is what every SVG-themed decoration looks like, so it is the default here too.
+square bottom is what every SVG-themed decoration looks like, and it is the compromise the rounded
+variant makes; square is the default here because it is the only titlebar shape that makes no
+compromise at all.
 
-Traffic lights are grey circles that take a muted colour on hover, and never show a symbol. They
-stay on the right, where KDE puts window buttons; macOS would put them on the left, and you can
-move them yourself in System Settings → Window Decorations without reinstalling. Aurorae gives each
-button its own artwork, so hovering one lights only that one rather than all three.
+Symbols are the default, and they are what KDE users expect a window to be closed with. Traffic
+lights are the alternative: grey circles that take a muted colour on hover and never show a symbol.
+Either way the buttons stay on the right, where KDE puts them — macOS would put traffic lights on
+the left, and you can move them yourself in System Settings → Window Decorations without
+reinstalling. Aurorae gives each button its own artwork, so hovering one lights only that one
+rather than all three.
 
 An option never edits a file. It only decides which already-written bytes get copied, so the
 artwork stays the only place the theme's looks are defined. A switch names an overlay to lay down

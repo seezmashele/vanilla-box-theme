@@ -61,7 +61,8 @@ four combinations, which is what a shared file would have forced.
 Both values of every shape axis carry an overlay, including the default ones. A value
 that copies nothing would be correct only while the base artwork happens to be what it describes,
 and the base has changed more than once — surfaces from rounded to square, buttons from symbols to
-traffic lights. Making every value carry its own overlay keeps the option independent of that.
+traffic lights and back again. Making every value carry its own overlay keeps the option
+independent of that.
 
 A palette is a surface set and the accent that goes with it, chosen together. Surfaces and
 highlights were two independent axes at first, on the reasoning that they are two questions. They
@@ -343,9 +344,9 @@ be the most saturated pixels on screen by a wide margin.
 three. Aurorae renders each button from its own SVG with no knowledge of its neighbours, so here
 hovering close colours only close. This is a limitation of the format, not a choice.
 
-**The buttons stay on the right,** including now that traffic lights are the default. Left is the
-macOS convention and the only place the traffic-light shape normally appears, so this is the shape
-without the placement. It is deliberate:
+**The buttons stay on the right,** whichever shape is chosen. Left is the macOS convention and the
+only place the traffic-light shape normally appears, so choosing traffic lights here gives the
+shape without the placement. It is deliberate:
 button order is a `kwinrc` setting rather than an Aurorae file, so writing it would overwrite a
 preference the user may have set for reasons of their own — and they can move the buttons in System
 Settings at any time without reinstalling. Left is what a macOS switcher, an RTL locale (where KWin
@@ -682,14 +683,29 @@ border. The usual `1 - 0.5523` gives `3.134` and fails to reproduce the decorati
 appears over arbitrary content rather than over the desktop or a panel it already contrasts with,
 so it is the only one that has to define its own edge.
 
-The outline is built the way the window decoration builds its own: the border shape is painted
-first and the background laid over it inset by a pixel, so the two antialiased curves stay
+The background is painted first, over the tile's whole shape, and the outline laid over it as a
+ring between that shape and the same shape a pixel in, so the two antialiased curves stay
 concentric. The corner builders therefore take an inset, and the idiom is chosen from the frame's
 own radius rather than the inset one — an inner path is the same corner drawn a pixel in, and
 re-deciding on the reduced radius would hand a frame's inner path to a different template than its
 outer one.
 
-Two things about it are easy to get wrong:
+A corner's ring is both paths in one `d`, under `fill-rule="evenodd"`, so the inner shape is cut
+out rather than drawn. They meet flush along the boundaries a tile shares with its neighbours, and
+there the two coincident edges cancel and leave the ring open — the same three sides the edge
+strips leave bare, because an outline on a shared seam would draw a line across the middle of the
+tooltip.
+
+Three things about it are easy to get wrong:
+
+- **The outline goes over the surface, not under it.** The window decoration stacks these the other
+  way round — border first, background inset over it — and this file was first written from that
+  template. It does not carry across. The decoration's border is an opaque literal, so what sits
+  underneath it never comes up; this one is a tenth of the text colour, and a tenth of something
+  needs the surface underneath it to be a tenth *of*. Painted first, the frame's outermost pixel is
+  the text colour at `0.098` alpha over whatever is behind the tooltip — ninety percent
+  transparent, a gap rather than an edge. Over the surface it resolves to an opaque `#292828`
+  against the default palette's `#141414`.
 
 - **It goes through the stylesheet, not a literal colour.** The container artwork is generated once
   per shape, not per palette — `containers/` has a `rounded` and a `square` tree and no tint axis —
@@ -751,6 +767,18 @@ list `assets/`.
 
 An omitted `kind` means a toggle, so an option written before selects existed still loads. A select
 value with no overlay is the one that matches the artwork as generated — `neutral` copies nothing.
+
+`group` names the page an option is asked on and `order` places it within that page, low to high,
+with the manifest's own sequence breaking ties. A page is gathered by group name rather than as a
+run, because a group can span components — Shape is asked partly by the Plasma style and partly by
+the decoration — and without `order` the only way to move one preference within it is to reorder
+the components, which moves every other page too.
+
+The order values are listed in is presentational. The cursor opens on the value already selected
+rather than on the first line, so `defaultValue` and the listing are free to disagree: Button &
+input corners lists Square first and installs Rounded. Tying the cursor to the first row instead
+would make every listing order a silent second declaration of the default, and one stray enter on
+an unread page would change the answer.
 
 An option still never edits a file. It only chooses which pre-generated bytes get copied, which is
 the same guarantee the transparency option makes today.

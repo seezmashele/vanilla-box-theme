@@ -142,6 +142,13 @@ type Option struct {
 	// saying where it belongs, not editing a screen.
 	Group string `json:"group"`
 
+	// Order places this option within its group, low to high, with the manifest's
+	// own order breaking ties. A group is gathered across components — Shape is
+	// asked partly by the Plasma style and partly by the decoration — so without
+	// it the only way to arrange a page is to reorder the components themselves,
+	// which moves every other page too.
+	Order int `json:"order"`
+
 	// Default is a toggle's starting state.
 	Default bool `json:"default"`
 
